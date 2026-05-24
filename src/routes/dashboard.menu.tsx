@@ -12,7 +12,17 @@ import {
   type DashboardMenuData,
 } from "@/api/dashboard";
 import { gbp } from "@/lib/utils/format";
-import { Plus, Pencil, Check, X, ImagePlus } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Check,
+  X,
+  ImagePlus,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  Flame,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/menu")({
@@ -22,355 +32,534 @@ export const Route = createFileRoute("/dashboard/menu")({
   component: MenuPage,
 });
 
-function MenuPage() {
-  const menuData = Route.useLoaderData() as DashboardMenuData | null | undefined;
-  const { r } = Route.useSearch();
-  const restaurantId = r!;
-  const router = useRouter();
-  const [addingTo, setAddingTo] = useState<string | null>(null);
-  const [addingCategory, setAddingCategory] = useState(false);
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-  if (!menuData) {
-    return (
-      <>
-        <PageHeader
-          title="Menu"
-          subtitle="Manage categories, items, and availability."
-        />
-        <div className="p-6">
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              No menu found. Complete onboarding to generate your initial menu.
-            </p>
-          </div>
-        </div>
-      </>
-    );
-  }
+const DIETARY_OPTIONS = [
+  { id: "vegan", label: "Vegan", emoji: "🌱" },
+  { id: "vegetarian", label: "Vegetarian", emoji: "🥦" },
+  { id: "gluten-free", label: "Gluten-free", emoji: "🌾" },
+  { id: "dairy-free", label: "Dairy-free", emoji: "🥛" },
+  { id: "halal", label: "Halal", emoji: "☪️" },
+  { id: "kosher", label: "Kosher", emoji: "✡️" },
+] as const;
 
-  const handleAddItem = async (
-    categoryId: string,
-    name: string,
-    price: number,
-  ) => {
-    try {
-      await createDashboardMenuItem({
-        data: {
-          restaurantId,
-          categoryId,
-          name,
-          pricePence: Math.round(price * 100),
-        },
-      });
-      setAddingTo(null);
-      toast.success(`Added "${name}"`);
-      await router.invalidate();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add item");
-    }
+const ALLERGEN_OPTIONS = [
+  { id: "gluten", label: "Gluten" },
+  { id: "dairy", label: "Dairy" },
+  { id: "eggs", label: "Eggs" },
+  { id: "nuts", label: "Tree nuts" },
+  { id: "peanuts", label: "Peanuts" },
+  { id: "soy", label: "Soy" },
+  { id: "fish", label: "Fish" },
+  { id: "shellfish", label: "Shellfish" },
+  { id: "sesame", label: "Sesame" },
+  { id: "celery", label: "Celery" },
+  { id: "mustard", label: "Mustard" },
+  { id: "sulphites", label: "Sulphites" },
+] as const;
+
+const SPICE_LEVELS = [
+  { value: 0, label: "None", icon: "—" },
+  { value: 1, label: "Mild", icon: "🌶" },
+  { value: 2, label: "Medium", icon: "🌶🌶" },
+  { value: 3, label: "Hot", icon: "🌶🌶🌶" },
+] as const;
+
+// ─── Item Modal ────────────────────────────────────────────────────────────────
+
+type ItemFormState = {
+  name: string;
+  description: string;
+  price: string;
+  imageUrl: string;
+  calories: string;
+  spiceLevel: number;
+  dietaryLabels: string[];
+  allergens: string[];
+  isFeatured: boolean;
+};
+
+function blankForm(item?: DashboardMenuItem): ItemFormState {
+  return {
+    name: item?.name ?? "",
+    description: item?.description ?? "",
+    price: item ? (item.price_pence / 100).toFixed(2) : "",
+    imageUrl: item?.image_url ?? "",
+    calories: item?.calories_kcal != null ? String(item.calories_kcal) : "",
+    spiceLevel: item?.spice_level ?? 0,
+    dietaryLabels: item?.dietary_labels ?? [],
+    allergens: item?.allergens ?? [],
+    isFeatured: item?.is_featured ?? false,
   };
-
-  const handleAddCategory = async (name: string) => {
-    try {
-      await createDashboardMenuCategory({
-        data: { restaurantId, menuId: menuData.menuId, name },
-      });
-      setAddingCategory(false);
-      toast.success(`Added category "${name}"`);
-      await router.invalidate();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to add category",
-      );
-    }
-  };
-
-  const handleUpdateItem = async (
-    id: string,
-    patch: {
-      name?: string;
-      description?: string;
-      pricePence?: number;
-      isAvailable?: boolean;
-    },
-  ) => {
-    try {
-      await updateDashboardMenuItem({ data: { id, ...patch } });
-      await router.invalidate();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update item",
-      );
-    }
-  };
-
-  return (
-    <>
-      <PageHeader
-        title="Menu"
-        subtitle="Manage categories, items, and availability."
-        action={
-          <button
-            onClick={() => setAddingCategory(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add category
-          </button>
-        }
-      />
-      <div className="p-6 space-y-6">
-        {addingCategory && (
-          <NewCategoryRow
-            onCancel={() => setAddingCategory(false)}
-            onSave={handleAddCategory}
-          />
-        )}
-
-        {menuData.categories.map((cat: DashboardMenuCategory) => (
-          <section
-            key={cat.id}
-            className="rounded-2xl border border-border bg-card"
-          >
-            <header className="flex items-center justify-between px-5 py-3 border-b border-border">
-              <div>
-                <h2 className="font-semibold">{cat.name}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {cat.items.length} items
-                </p>
-              </div>
-              <button
-                onClick={() =>
-                  setAddingTo(addingTo === cat.id ? null : cat.id)
-                }
-                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add item
-              </button>
-            </header>
-            <div className="divide-y divide-border">
-              {cat.items.map((it: DashboardMenuItem) => (
-                <MenuRow
-                  key={it.id}
-                  item={it}
-                  category={cat}
-                  onUpdate={handleUpdateItem}
-                />
-              ))}
-              {addingTo === cat.id && (
-                <NewItemRow
-                  onCancel={() => setAddingTo(null)}
-                  onSave={(name, price) =>
-                    handleAddItem(cat.id, name, price)
-                  }
-                />
-              )}
-            </div>
-          </section>
-        ))}
-
-        {menuData.categories.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-            No categories yet. Add one to get started.
-          </div>
-        )}
-      </div>
-    </>
-  );
 }
 
-function MenuRow({
+function ItemModal({
+  categoryId,
   item,
-  onUpdate,
+  onClose,
+  onSaved,
+  restaurantId,
 }: {
-  item: DashboardMenuItem;
-  category: DashboardMenuCategory;
-  onUpdate: (
-    id: string,
-    patch: {
-      name?: string;
-      description?: string;
-      pricePence?: number;
-      isAvailable?: boolean;
-    },
-  ) => void;
+  categoryId: string;
+  item?: DashboardMenuItem;
+  onClose: () => void;
+  onSaved: () => void;
+  restaurantId: string;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(item.name);
-  const [description, setDescription] = useState(item.description ?? "");
-  const [price, setPrice] = useState((item.price_pence / 100).toFixed(2));
+  const isEdit = !!item;
+  const [form, setForm] = useState<ItemFormState>(() => blankForm(item));
+  const [saving, setSaving] = useState(false);
+  const [allergensOpen, setAllergensOpen] = useState(
+    (item?.allergens?.length ?? 0) > 0,
+  );
 
-  const save = () => {
-    const p = parseFloat(price);
-    if (!name.trim() || Number.isNaN(p) || p <= 0) {
+  const set = <K extends keyof ItemFormState>(k: K, v: ItemFormState[K]) =>
+    setForm((prev) => ({ ...prev, [k]: v }));
+
+  const toggleLabel = (id: string) =>
+    set(
+      "dietaryLabels",
+      form.dietaryLabels.includes(id)
+        ? form.dietaryLabels.filter((x) => x !== id)
+        : [...form.dietaryLabels, id],
+    );
+
+  const toggleAllergen = (id: string) =>
+    set(
+      "allergens",
+      form.allergens.includes(id)
+        ? form.allergens.filter((x) => x !== id)
+        : [...form.allergens, id],
+    );
+
+  const handleSave = async () => {
+    const p = parseFloat(form.price);
+    if (!form.name.trim() || Number.isNaN(p) || p <= 0) {
       toast.error("Name and a valid price are required");
       return;
     }
-    onUpdate(item.id, {
-      name: name.trim(),
-      description,
-      pricePence: Math.round(p * 100),
-    });
-    setEditing(false);
-    toast.success("Item updated");
+    setSaving(true);
+    try {
+      const cals = form.calories.trim()
+        ? parseInt(form.calories, 10)
+        : undefined;
+      if (isEdit) {
+        await updateDashboardMenuItem({
+          data: {
+            id: item!.id,
+            name: form.name.trim(),
+            description: form.description.trim(),
+            pricePence: Math.round(p * 100),
+            imageUrl: form.imageUrl.trim() || null,
+            caloriesKcal: Number.isNaN(cals as number) ? null : (cals ?? null),
+            spiceLevel: form.spiceLevel,
+            dietaryLabels: form.dietaryLabels,
+            allergens: form.allergens,
+            isFeatured: form.isFeatured,
+          },
+        });
+        toast.success(`"${form.name}" updated`);
+      } else {
+        await createDashboardMenuItem({
+          data: {
+            restaurantId,
+            categoryId,
+            name: form.name.trim(),
+            description: form.description.trim(),
+            pricePence: Math.round(p * 100),
+            imageUrl: form.imageUrl.trim() || null,
+            caloriesKcal: Number.isNaN(cals as number) ? null : (cals ?? null),
+            spiceLevel: form.spiceLevel,
+            dietaryLabels: form.dietaryLabels,
+            allergens: form.allergens,
+            isFeatured: form.isFeatured,
+          },
+        });
+        toast.success(`"${form.name}" added`);
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="w-full max-w-lg bg-background rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+          <h2 className="font-semibold text-lg">
+            {isEdit ? "Edit item" : "Add menu item"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1.5 hover:bg-muted text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+          {/* Image preview + URL */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Food image
+            </label>
+            <div className="flex gap-3 items-start">
+              <div className="h-20 w-20 shrink-0 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden text-muted-foreground">
+                {form.imageUrl ? (
+                  <img
+                    src={form.imageUrl}
+                    alt="Preview"
+                    className="h-full w-full object-cover"
+                    onError={(e) =>
+                      ((e.currentTarget as HTMLImageElement).style.display =
+                        "none")
+                    }
+                  />
+                ) : (
+                  <ImagePlus className="h-6 w-6" />
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="url"
+                  value={form.imageUrl}
+                  onChange={(e) => set("imageUrl", e.target.value)}
+                  placeholder="https://example.com/burger.jpg"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Paste any public image URL. Square images work best.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Name + Price */}
+          <div className="grid gap-3 sm:grid-cols-[1fr,130px]">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Item name <span className="text-destructive">*</span>
+              </label>
+              <input
+                autoFocus
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Classic Cheeseburger"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Price (£) <span className="text-destructive">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.price}
+                onChange={(e) => set("price", e.target.value)}
+                placeholder="0.00"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Description
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              rows={3}
+              placeholder="Describe the dish — ingredients, cooking style, what makes it special…"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary resize-none"
+            />
+          </div>
+
+          {/* Calories + Spice */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Calories (kcal)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={form.calories}
+                onChange={(e) => set("calories", e.target.value)}
+                placeholder="e.g. 650"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Spice level
+              </label>
+              <div className="flex gap-1.5">
+                {SPICE_LEVELS.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => set("spiceLevel", s.value)}
+                    title={s.label}
+                    className={`flex-1 rounded-lg border px-1.5 py-2 text-sm transition-colors ${
+                      form.spiceLevel === s.value
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {s.icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Dietary labels */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Dietary labels
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {DIETARY_OPTIONS.map((d) => {
+                const active = form.dietaryLabels.includes(d.id);
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => toggleLabel(d.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    <span>{d.emoji}</span>
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Allergens (collapsible) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setAllergensOpen((o) => !o)}
+              className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {allergensOpen ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+              Allergens
+              {form.allergens.length > 0 && (
+                <span className="rounded-full bg-amber-100 text-amber-700 px-1.5 text-[10px] font-semibold">
+                  {form.allergens.length}
+                </span>
+              )}
+            </button>
+            {allergensOpen && (
+              <div className="flex flex-wrap gap-2">
+                {ALLERGEN_OPTIONS.map((a) => {
+                  const active = form.allergens.includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => toggleAllergen(a.id)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs transition-colors ${
+                        active
+                          ? "border-amber-400 bg-amber-50 text-amber-700 font-medium"
+                          : "border-border bg-background text-muted-foreground hover:border-amber-300"
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Featured toggle */}
+          <div
+            className={`flex items-center justify-between rounded-xl border p-4 cursor-pointer transition-colors ${
+              form.isFeatured
+                ? "border-amber-400/60 bg-amber-50/60"
+                : "border-border bg-background hover:bg-muted/40"
+            }`}
+            onClick={() => set("isFeatured", !form.isFeatured)}
+          >
+            <div className="flex items-center gap-2.5">
+              <Star
+                className={`h-4 w-4 ${form.isFeatured ? "text-amber-500 fill-amber-400" : "text-muted-foreground"}`}
+              />
+              <div>
+                <p className="text-sm font-medium">Featured item</p>
+                <p className="text-xs text-muted-foreground">
+                  Highlighted in the storefront
+                </p>
+              </div>
+            </div>
+            <div
+              className={`h-5 w-9 rounded-full transition-colors relative ${form.isFeatured ? "bg-amber-400" : "bg-muted"}`}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${form.isFeatured ? "translate-x-4" : "translate-x-0.5"}`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 flex items-center justify-end gap-3 px-5 py-4 border-t border-border">
+          <button
+            onClick={onClose}
+            className="rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
+          >
+            {saving
+              ? isEdit
+                ? "Saving…"
+                : "Adding…"
+              : isEdit
+                ? "Save changes"
+                : "Add item"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Menu Row ─────────────────────────────────────────────────────────────────
+
+function MenuRow({
+  item,
+  categoryId,
+  restaurantId,
+  onUpdate,
+  onOpenEdit,
+}: {
+  item: DashboardMenuItem;
+  categoryId: string;
+  restaurantId: string;
+  onUpdate: (id: string, patch: { isAvailable: boolean }) => void;
+  onOpenEdit: (item: DashboardMenuItem, categoryId: string) => void;
+}) {
+  const spice =
+    item.spice_level > 0 ? SPICE_LEVELS[item.spice_level]?.icon : null;
 
   const toggle = () => {
     onUpdate(item.id, { isAvailable: !item.is_available });
-    toast(
-      `"${item.name}" → ${item.is_available ? "Sold out" : "Available"}`,
-    );
+    toast(`"${item.name}" → ${item.is_available ? "Sold out" : "Available"}`);
   };
 
-  if (editing) {
-    return (
-      <div className="px-5 py-3 space-y-2">
-        <div className="grid gap-2 sm:grid-cols-[1fr,100px] items-center">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            placeholder="Item name"
-          />
-          <input
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            type="number"
-            step="0.01"
-            min="0"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            placeholder="Price"
-          />
-        </div>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-          placeholder="Description"
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={save}
-            className="inline-flex items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground"
-          >
-            <Check className="h-3.5 w-3.5" /> Save
-          </button>
-          <button
-            onClick={() => {
-              setEditing(false);
-              setName(item.name);
-              setDescription(item.description ?? "");
-              setPrice((item.price_pence / 100).toFixed(2));
-            }}
-            className="inline-flex items-center gap-1 rounded-full bg-muted px-3.5 py-1.5 text-xs font-medium text-muted-foreground"
-          >
-            <X className="h-3.5 w-3.5" /> Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="relative h-14 w-14 shrink-0 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center text-muted-foreground">
-          {item.image_url ? (
-            <img
-              src={item.image_url}
-              alt={item.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <ImagePlus className="h-4 w-4" />
-          )}
+    <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
+      {/* Thumbnail */}
+      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center text-muted-foreground">
+        {item.image_url ? (
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <ImagePlus className="h-4 w-4" />
+        )}
+        {item.is_featured && (
+          <span className="absolute top-0.5 right-0.5 rounded-full bg-amber-400 p-0.5">
+            <Star className="h-2.5 w-2.5 text-white fill-white" />
+          </span>
+        )}
+      </div>
+
+      {/* Details */}
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="font-medium text-sm leading-tight">{item.name}</p>
+          {spice && <span className="text-xs">{spice}</span>}
         </div>
-        <div className="min-w-0">
-          <p className="font-medium">{item.name}</p>
+        {item.description && (
           <p className="text-xs text-muted-foreground line-clamp-1">
             {item.description}
           </p>
+        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(item.dietary_labels ?? []).map((lbl) => {
+            const opt = DIETARY_OPTIONS.find((d) => d.id === lbl);
+            return opt ? (
+              <span
+                key={lbl}
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+              >
+                {opt.emoji} {opt.label}
+              </span>
+            ) : null;
+          })}
+          {(item.allergens ?? []).length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] text-amber-700">
+              ⚠ {item.allergens!.length} allergen
+              {item.allergens!.length > 1 ? "s" : ""}
+            </span>
+          )}
+          {item.calories_kcal != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+              <Flame className="h-2.5 w-2.5" /> {item.calories_kcal} kcal
+            </span>
+          )}
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium">
+
+      {/* Actions */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <span className="text-sm font-semibold tabular-nums">
           {gbp(item.price_pence / 100)}
         </span>
         <button
           onClick={toggle}
-          className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+          className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
             item.is_available
               ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+              : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
           }`}
         >
           {item.is_available ? "Available" : "Sold out"}
         </button>
         <button
-          onClick={() => setEditing(true)}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => onOpenEdit(item, categoryId)}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Pencil className="h-3.5 w-3.5" /> Edit
+          <Pencil className="h-3.5 w-3.5" />
+          Edit
         </button>
       </div>
     </div>
   );
 }
 
-function NewItemRow({
-  onCancel,
-  onSave,
-}: {
-  onCancel: () => void;
-  onSave: (name: string, price: number) => void;
-}) {
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-
-  const handleSave = () => {
-    const p = parseFloat(price);
-    if (!name.trim() || Number.isNaN(p) || p <= 0) {
-      toast.error("Enter a name and valid price");
-      return;
-    }
-    onSave(name.trim(), p);
-  };
-
-  return (
-    <div className="bg-muted/30 px-5 py-3 grid gap-2 sm:grid-cols-[1fr,120px,auto]">
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="New item name"
-        className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-      />
-      <input
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        type="number"
-        step="0.01"
-        min="0"
-        placeholder="0.00"
-        className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={handleSave}
-          className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground"
-        >
-          Add
-        </button>
-        <button
-          onClick={onCancel}
-          className="rounded-full bg-muted px-3.5 py-1.5 text-xs"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
+// ─── New Category Row ─────────────────────────────────────────────────────────
 
 function NewCategoryRow({
   onCancel,
@@ -401,21 +590,169 @@ function NewCategoryRow({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
           placeholder="Category name (e.g. Starters)"
-          className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
         <button
           onClick={handleSave}
-          className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground"
+          className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground"
         >
-          Add
+          <Check className="h-3.5 w-3.5" /> Add
         </button>
         <button
           onClick={onCancel}
-          className="rounded-full bg-muted px-3.5 py-1.5 text-xs"
+          className="rounded-full border border-border px-3.5 py-1.5 text-xs text-muted-foreground hover:bg-muted"
         >
           Cancel
         </button>
       </div>
     </div>
+  );
+}
+
+// ─── Menu Page ────────────────────────────────────────────────────────────────
+
+function MenuPage() {
+  const menuData = Route.useLoaderData() as DashboardMenuData | null | undefined;
+  const { r } = Route.useSearch();
+  const restaurantId = r!;
+  const router = useRouter();
+
+  // Modal state: null = closed, { categoryId, item? } = open
+  const [modal, setModal] = useState<{
+    categoryId: string;
+    item?: DashboardMenuItem;
+  } | null>(null);
+  const [addingCategory, setAddingCategory] = useState(false);
+
+  if (!menuData) {
+    return (
+      <>
+        <PageHeader
+          title="Menu"
+          subtitle="Manage categories, items, and availability."
+        />
+        <div className="p-6">
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              No menu found. Complete onboarding to generate your initial menu.
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const handleAddCategory = async (name: string) => {
+    try {
+      await createDashboardMenuCategory({
+        data: { restaurantId, menuId: menuData.menuId, name },
+      });
+      setAddingCategory(false);
+      toast.success(`Category "${name}" added`);
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add category");
+    }
+  };
+
+  const handleToggleAvailable = async (
+    id: string,
+    patch: { isAvailable: boolean },
+  ) => {
+    try {
+      await updateDashboardMenuItem({ data: { id, isAvailable: patch.isAvailable } });
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update item");
+    }
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Menu"
+        subtitle="Manage categories, items, and availability."
+        action={
+          <button
+            onClick={() => setAddingCategory(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add category
+          </button>
+        }
+      />
+
+      <div className="p-6 space-y-6">
+        {addingCategory && (
+          <NewCategoryRow
+            onCancel={() => setAddingCategory(false)}
+            onSave={handleAddCategory}
+          />
+        )}
+
+        {menuData.categories.map((cat: DashboardMenuCategory) => (
+          <section
+            key={cat.id}
+            className="rounded-2xl border border-border bg-card overflow-hidden"
+          >
+            <header className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/30">
+              <div>
+                <h2 className="font-semibold text-sm">{cat.name}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {cat.items.length} item{cat.items.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  setModal({ categoryId: cat.id })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add item
+              </button>
+            </header>
+
+            <div className="divide-y divide-border">
+              {cat.items.map((it: DashboardMenuItem) => (
+                <MenuRow
+                  key={it.id}
+                  item={it}
+                  categoryId={cat.id}
+                  restaurantId={restaurantId}
+                  onUpdate={handleToggleAvailable}
+                  onOpenEdit={(item, categoryId) =>
+                    setModal({ categoryId, item })
+                  }
+                />
+              ))}
+              {cat.items.length === 0 && (
+                <div className="px-5 py-6 text-center text-xs text-muted-foreground">
+                  No items yet — click "Add item" to get started.
+                </div>
+              )}
+            </div>
+          </section>
+        ))}
+
+        {menuData.categories.length === 0 && !addingCategory && (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+            No categories yet. Add one above to get started.
+          </div>
+        )}
+      </div>
+
+      {/* Item Modal */}
+      {modal && (
+        <ItemModal
+          categoryId={modal.categoryId}
+          item={modal.item}
+          restaurantId={restaurantId}
+          onClose={() => setModal(null)}
+          onSaved={async () => {
+            await router.invalidate();
+          }}
+        />
+      )}
+    </>
   );
 }

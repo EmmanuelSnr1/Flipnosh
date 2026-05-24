@@ -1,4 +1,4 @@
-import type { Restaurant } from "@/types";
+import type { Restaurant, StorefrontPageId } from "@/types";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { cart } from "@/stores/cart-store";
@@ -8,6 +8,13 @@ const themeClassMap: Record<string, string> = {
   modern: "theme-modern",
   bold: "theme-bold",
 };
+
+// All possible nav entries — filtered by enabledPages at render time
+const ALL_NAV: Array<{ pageId: StorefrontPageId; to: "/r/$slug" | "/r/$slug/menu" | "/r/$slug/contact"; label: string; matchSuffix: string }> = [
+  { pageId: "home",    to: "/r/$slug" as const,         label: "Home",    matchSuffix: ""        },
+  { pageId: "menu",    to: "/r/$slug/menu" as const,    label: "Menu",    matchSuffix: "/menu"   },
+  { pageId: "contact", to: "/r/$slug/contact" as const, label: "Contact", matchSuffix: "/contact"},
+];
 
 export function StorefrontShell({
   restaurant,
@@ -35,9 +42,14 @@ export function StorefrontShell({
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Only show nav entries whose page is in enabledPages.
+  // Always ensure "menu" is shown — customers need to order.
+  const enabledPages = theme.enabledPages ?? ["home", "menu", "contact"];
+  const visibleNav = ALL_NAV.filter((n) => enabledPages.includes(n.pageId));
+
   return (
     <div
-      className={`min-h-screen bg-background text-foreground ${themeClassMap[theme.themeName]}`}
+      className={`min-h-screen bg-background text-foreground ${themeClassMap[theme.themeName] ?? ""}`}
       style={styleVars}
     >
       {showNav && (
@@ -49,7 +61,11 @@ export function StorefrontShell({
               className="flex items-center gap-2 font-bold tracking-tight"
             >
               {branding.logoUrl ? (
-                <img src={branding.logoUrl} alt={restaurant.name} className="h-8 w-8 rounded-full object-cover" />
+                <img
+                  src={branding.logoUrl}
+                  alt={restaurant.name}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
               ) : (
                 <span
                   className="h-8 w-8 rounded-full flex items-center justify-center text-[11px] text-primary-foreground font-bold"
@@ -60,16 +76,14 @@ export function StorefrontShell({
               )}
               <span className="truncate max-w-[180px]">{restaurant.name}</span>
             </Link>
+
             <nav className="flex items-center gap-1 text-sm">
-              {[
-                { to: "/r/$slug" as const, label: "Home", match: `/r/${slug}` },
-                { to: "/r/$slug/menu" as const, label: "Menu", match: `/r/${slug}/menu` },
-                { to: "/r/$slug/contact" as const, label: "Contact", match: `/r/${slug}/contact` },
-              ].map((n) => {
-                const active = pathname === n.match;
+              {visibleNav.map((n) => {
+                const match = `/r/${slug}${n.matchSuffix}`;
+                const active = pathname === match;
                 return (
                   <Link
-                    key={n.label}
+                    key={n.pageId}
                     to={n.to}
                     params={{ slug }}
                     className={`px-3 py-1.5 rounded-full transition-colors ${

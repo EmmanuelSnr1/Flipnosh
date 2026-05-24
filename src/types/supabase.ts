@@ -190,9 +190,12 @@ export type Database = {
       }
       menu_items: {
         Row: {
+          allergens: string[]
+          calories_kcal: number | null
           category_id: string
           created_at: string
           description: string | null
+          dietary_labels: string[]
           id: string
           image_url: string | null
           is_available: boolean
@@ -201,12 +204,16 @@ export type Database = {
           price_pence: number
           restaurant_id: string
           sort_order: number
+          spice_level: number
           updated_at: string
         }
         Insert: {
+          allergens?: string[]
+          calories_kcal?: number | null
           category_id: string
           created_at?: string
           description?: string | null
+          dietary_labels?: string[]
           id?: string
           image_url?: string | null
           is_available?: boolean
@@ -215,12 +222,16 @@ export type Database = {
           price_pence: number
           restaurant_id: string
           sort_order?: number
+          spice_level?: number
           updated_at?: string
         }
         Update: {
+          allergens?: string[]
+          calories_kcal?: number | null
           category_id?: string
           created_at?: string
           description?: string | null
+          dietary_labels?: string[]
           id?: string
           image_url?: string | null
           is_available?: boolean
@@ -229,6 +240,7 @@ export type Database = {
           price_pence?: number
           restaurant_id?: string
           sort_order?: number
+          spice_level?: number
           updated_at?: string
         }
         Relationships: [

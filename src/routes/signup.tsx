@@ -3,7 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { signUpAndCreateRestaurant } from "@/api/auth";
 import { toast } from "sonner";
-import { Flame } from "lucide-react";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
 
 export const Route = createFileRoute("/signup")({ component: SignupPage });
 
@@ -59,14 +59,7 @@ function SignupPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="p-6">
-        <Link to="/" className="inline-flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Flame className="h-4 w-4" />
-          </span>
-          <span className="font-bold">FlipNosh</span>
-        </Link>
-      </header>
+      <MarketingNav />
 
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">

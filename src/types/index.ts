@@ -21,6 +21,12 @@ export type MenuItem = {
   category: string;
   available: boolean;
   modifiers?: ModifierGroup[];
+  // Rich metadata
+  isFeatured?: boolean;
+  dietaryLabels?: string[];
+  allergens?: string[];
+  caloriesKcal?: number | null;
+  spiceLevel?: number;
 };
 
 export type MenuCategory = {

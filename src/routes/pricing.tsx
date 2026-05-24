@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Flame, Zap, Shield, Lock } from "lucide-react";
+import { Check, Zap, Shield, Lock } from "lucide-react";
 import { PLAN_DEFINITIONS } from "@/lib/billing/plans";
+import { MarketingNav } from "@/components/marketing/MarketingNav";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
 export const Route = createFileRoute("/pricing")({ component: PricingPage });
 
@@ -13,28 +15,7 @@ function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* ── Nav ── */}
-      <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/90">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Flame className="h-4 w-4" />
-            </span>
-            <span className="font-bold text-lg">FlipNosh</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Sign in
-            </Link>
-            <Link
-              to="/signup"
-              className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-            >
-              Start free trial
-            </Link>
-          </div>
-        </div>
-      </header>
+      <MarketingNav />
 
       {/* ── Hero ── */}
       <section className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
@@ -195,17 +176,7 @@ function PricingPage() {
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-border">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>© 2025 FlipNosh. All rights reserved.</span>
-          <div className="flex items-center gap-6">
-            <a href="/privacy" className="hover:text-foreground">Privacy</a>
-            <a href="/terms" className="hover:text-foreground">Terms</a>
-            <a href="mailto:hello@flipnosh.com" className="hover:text-foreground">Contact</a>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

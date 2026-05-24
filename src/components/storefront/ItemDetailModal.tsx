@@ -2,8 +2,30 @@ import { useState, useEffect } from "react";
 import type { MenuItem } from "@/types";
 import { gbp } from "@/lib/utils/format";
 import { cart } from "@/stores/cart-store";
-import { X, Minus, Plus } from "lucide-react";
+import { X, Minus, Plus, Flame } from "lucide-react";
 import { toast } from "sonner";
+
+const DIETARY_EMOJI: Record<string, string> = {
+  vegan: "🌱",
+  vegetarian: "🥦",
+  "gluten-free": "🌾",
+  "dairy-free": "🥛",
+  halal: "☪️",
+  kosher: "✡️",
+};
+const DIETARY_LABEL: Record<string, string> = {
+  vegan: "Vegan",
+  vegetarian: "Vegetarian",
+  "gluten-free": "Gluten-free",
+  "dairy-free": "Dairy-free",
+  halal: "Halal",
+  kosher: "Kosher",
+};
+const SPICE_LABEL: Record<number, string> = {
+  1: "🌶 Mild",
+  2: "🌶🌶 Medium",
+  3: "🌶🌶🌶 Hot",
+};
 
 export function ItemDetailModal({ item, onClose }: { item: MenuItem | null; onClose: () => void }) {
   const [qty, setQty] = useState(1);
@@ -84,7 +106,42 @@ export function ItemDetailModal({ item, onClose }: { item: MenuItem | null; onCl
         <div className="flex-1 overflow-y-auto p-5 sm:p-6">
           <h2 className="text-2xl font-bold text-foreground">{item.name}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
-          <p className="mt-2 text-base font-semibold text-foreground">{gbp(item.price)}</p>
+
+          {/* Price + meta row */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-base font-semibold text-foreground">{gbp(item.price)}</span>
+            {item.caloriesKcal != null && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+                <Flame className="h-3 w-3" /> {item.caloriesKcal} kcal
+              </span>
+            )}
+            {item.spiceLevel != null && item.spiceLevel > 0 && (
+              <span className="inline-flex items-center rounded-full bg-red-50 border border-red-100 px-2.5 py-0.5 text-xs text-red-600">
+                {SPICE_LABEL[item.spiceLevel] ?? "Spicy"}
+              </span>
+            )}
+          </div>
+
+          {/* Dietary chips */}
+          {(item.dietaryLabels ?? []).length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {(item.dietaryLabels ?? []).map((lbl) => (
+                <span
+                  key={lbl}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2.5 py-0.5 text-xs text-muted-foreground"
+                >
+                  {DIETARY_EMOJI[lbl] ?? "•"} {DIETARY_LABEL[lbl] ?? lbl}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Allergens */}
+          {(item.allergens ?? []).length > 0 && (
+            <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              ⚠ Contains: {item.allergens!.join(", ")}
+            </p>
+          )}
 
           {item.modifiers?.map((g) => (
             <div key={g.id} className="mt-5">

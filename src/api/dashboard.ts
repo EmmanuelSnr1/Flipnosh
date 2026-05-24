@@ -141,6 +141,10 @@ export type DashboardMenuItem = {
   is_available: boolean;
   is_featured: boolean;
   sort_order: number;
+  dietary_labels: string[];
+  allergens: string[];
+  calories_kcal: number | null;
+  spice_level: number;
 };
 
 export type DashboardMenuCategory = {
@@ -328,7 +332,7 @@ export const getDashboardMenu = createServerFn({ method: "GET" })
       .from("menu_categories")
       .select(`
         id, name, sort_order,
-        menu_items (id, name, description, price_pence, image_url, is_available, is_featured, sort_order)
+        menu_items (id, name, description, price_pence, image_url, is_available, is_featured, sort_order, dietary_labels, allergens, calories_kcal, spice_level)
       `)
       .eq("restaurant_id", restaurantId)
       .eq("menu_id", activeMenu.id)
@@ -412,6 +416,11 @@ export const updateDashboardMenuItem = createServerFn({ method: "POST" })
       pricePence?: number;
       isAvailable?: boolean;
       isFeatured?: boolean;
+      imageUrl?: string | null;
+      dietaryLabels?: string[];
+      allergens?: string[];
+      caloriesKcal?: number | null;
+      spiceLevel?: number;
     }) =>
       z
         .object({
@@ -421,6 +430,11 @@ export const updateDashboardMenuItem = createServerFn({ method: "POST" })
           pricePence: z.number().int().positive().optional(),
           isAvailable: z.boolean().optional(),
           isFeatured: z.boolean().optional(),
+          imageUrl: z.string().url().nullable().optional(),
+          dietaryLabels: z.array(z.string()).optional(),
+          allergens: z.array(z.string()).optional(),
+          caloriesKcal: z.number().int().positive().nullable().optional(),
+          spiceLevel: z.number().int().min(0).max(3).optional(),
         })
         .parse(input),
   )
@@ -435,6 +449,11 @@ export const updateDashboardMenuItem = createServerFn({ method: "POST" })
         ...(rest.pricePence !== undefined && { price_pence: rest.pricePence }),
         ...(rest.isAvailable !== undefined && { is_available: rest.isAvailable }),
         ...(rest.isFeatured !== undefined && { is_featured: rest.isFeatured }),
+        ...(rest.imageUrl !== undefined && { image_url: rest.imageUrl }),
+        ...(rest.dietaryLabels !== undefined && { dietary_labels: rest.dietaryLabels }),
+        ...(rest.allergens !== undefined && { allergens: rest.allergens }),
+        ...(rest.caloriesKcal !== undefined && { calories_kcal: rest.caloriesKcal }),
+        ...(rest.spiceLevel !== undefined && { spice_level: rest.spiceLevel }),
       })
       .eq("id", id)
       .select()
@@ -453,6 +472,12 @@ export const createDashboardMenuItem = createServerFn({ method: "POST" })
       name: string;
       description?: string;
       pricePence: number;
+      imageUrl?: string | null;
+      isFeatured?: boolean;
+      dietaryLabels?: string[];
+      allergens?: string[];
+      caloriesKcal?: number | null;
+      spiceLevel?: number;
     }) =>
       z
         .object({
@@ -461,6 +486,12 @@ export const createDashboardMenuItem = createServerFn({ method: "POST" })
           name: z.string().min(1),
           description: z.string().optional(),
           pricePence: z.number().int().positive(),
+          imageUrl: z.string().url().nullable().optional(),
+          isFeatured: z.boolean().optional(),
+          dietaryLabels: z.array(z.string()).optional(),
+          allergens: z.array(z.string()).optional(),
+          caloriesKcal: z.number().int().positive().nullable().optional(),
+          spiceLevel: z.number().int().min(0).max(3).optional(),
         })
         .parse(input),
   )
@@ -482,8 +513,13 @@ export const createDashboardMenuItem = createServerFn({ method: "POST" })
         name: data.name,
         description: data.description,
         price_pence: data.pricePence,
+        image_url: data.imageUrl ?? null,
         is_available: true,
-        is_featured: false,
+        is_featured: data.isFeatured ?? false,
+        dietary_labels: data.dietaryLabels ?? [],
+        allergens: data.allergens ?? [],
+        calories_kcal: data.caloriesKcal ?? null,
+        spice_level: data.spiceLevel ?? 0,
         sort_order: count ?? 0,
       })
       .select()

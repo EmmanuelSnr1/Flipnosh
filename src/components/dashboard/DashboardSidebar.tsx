@@ -150,7 +150,7 @@ export function DashboardSidebar({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar sticky top-0 h-screen overflow-y-auto">
       <div className="px-5 py-5 flex items-center gap-3">
         <Logo size="sm" showWordmark={false} />
         <div>

@@ -49,6 +49,10 @@ type SbMenuItem = {
   is_available: boolean;
   is_featured: boolean;
   sort_order: number;
+  dietary_labels: string[] | null;
+  allergens: string[] | null;
+  calories_kcal: number | null;
+  spice_level: number;
   modifier_groups: SbModifierGroup[];
 };
 
@@ -241,6 +245,11 @@ function adaptMenuItem(sb: SbMenuItem, categoryName: string): MenuItem {
     category: categoryName,
     available: sb.is_available,
     modifiers: (sb.modifier_groups ?? []).map(adaptModifierGroup),
+    isFeatured: sb.is_featured,
+    dietaryLabels: sb.dietary_labels ?? [],
+    allergens: sb.allergens ?? [],
+    caloriesKcal: sb.calories_kcal,
+    spiceLevel: sb.spice_level ?? 0,
   };
 }
 
