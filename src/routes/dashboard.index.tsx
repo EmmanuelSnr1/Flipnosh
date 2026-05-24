@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { useStore } from "@/lib/mock-store";
+import { useStore } from "@/stores/mock-store";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
-import { gbp } from "@/lib/format";
+import { gbp } from "@/lib/utils/format";
 import { TrendingUp, Receipt, Users, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/")({

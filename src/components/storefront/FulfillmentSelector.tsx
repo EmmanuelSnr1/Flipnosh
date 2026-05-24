@@ -1,4 +1,4 @@
-import { useCart, cart } from "@/lib/cart-store";
+import { useCart, cart } from "@/stores/cart-store";
 import type { Restaurant } from "@/types";
 import { useEffect } from "react";
 

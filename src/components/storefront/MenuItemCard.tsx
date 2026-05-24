@@ -1,5 +1,5 @@
 import type { MenuItem } from "@/types";
-import { gbp } from "@/lib/format";
+import { gbp } from "@/lib/utils/format";
 import { Plus } from "lucide-react";
 
 export function MenuItemCard({ item, onSelect }: { item: MenuItem; onSelect: (i: MenuItem) => void }) {

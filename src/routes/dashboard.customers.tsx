@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { mockCustomers } from "@/lib/mock-data/customers";
-import { gbp } from "@/lib/format";
+import { mockCustomers } from "@/data/customers";
+import { gbp } from "@/lib/utils/format";
 
 export const Route = createFileRoute("/dashboard/customers")({
   component: CustomersPage,

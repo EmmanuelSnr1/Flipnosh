@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { store, useStore } from "@/lib/mock-store";
+import { store, useStore } from "@/stores/mock-store";
 import { StepShell, STEPS } from "@/components/onboarding/StepShell";
 import { LivePreview } from "@/components/onboarding/LivePreview";
 import {

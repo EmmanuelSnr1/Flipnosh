@@ -1,5 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { store, useStore } from "@/lib/mock-store";
+import { store, useStore } from "@/stores/mock-store";
 import type { Restaurant } from "@/types";
 import { StorefrontShell } from "@/components/storefront/StorefrontShell";
 import { MapPin, Phone, Mail, Clock, Truck, ShoppingBag, Instagram, Facebook } from "lucide-react";

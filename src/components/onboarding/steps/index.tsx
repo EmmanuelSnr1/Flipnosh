@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { store, useStore } from "@/lib/mock-store";
+import { store, useStore } from "@/stores/mock-store";
 import type {
   CartStyle,
   CategoryNav,
@@ -9,7 +9,7 @@ import type {
   MenuItem,
   StorefrontPageId,
 } from "@/types";
-import { gbp } from "@/lib/format";
+import { gbp } from "@/lib/utils/format";
 import { toast } from "sonner";
 import {
   Sparkles,

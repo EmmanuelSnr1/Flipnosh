@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { store, useStore } from "@/lib/mock-store";
+import { store, useStore } from "@/stores/mock-store";
 import type {
   CartStyle,
   CategoryNav,

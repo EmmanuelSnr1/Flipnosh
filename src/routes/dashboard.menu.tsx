@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { store, useStore } from "@/lib/mock-store";
-import { gbp } from "@/lib/format";
+import { store, useStore } from "@/stores/mock-store";
+import { gbp } from "@/lib/utils/format";
 import { Plus, Pencil, Check, X, ImagePlus, Trash2 } from "lucide-react";
 import type { MenuItem } from "@/types";
 import { toast } from "sonner";

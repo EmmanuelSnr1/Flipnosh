@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { MenuItem } from "@/types";
-import { gbp } from "@/lib/format";
-import { cart } from "@/lib/cart-store";
+import { gbp } from "@/lib/utils/format";
+import { cart } from "@/stores/cart-store";
 import { X, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 

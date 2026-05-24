@@ -1,4 +1,4 @@
-import { useStore } from "@/lib/mock-store";
+import { useStore } from "@/stores/mock-store";
 import { ExternalLink, Smartphone, Monitor } from "lucide-react";
 import { useState } from "react";
 

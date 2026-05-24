@@ -6,9 +6,9 @@ import {
   ORDER_STATUS_LABEL,
   store,
   useStore,
-} from "@/lib/mock-store";
+} from "@/stores/mock-store";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
-import { gbp } from "@/lib/format";
+import { gbp } from "@/lib/utils/format";
 import type { Order, OrderStatus } from "@/types";
 import { toast } from "sonner";
 

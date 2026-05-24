@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { allRestaurants } from "@/lib/mock-data/restaurants";
+import { allRestaurants } from "@/data/restaurants";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminList,

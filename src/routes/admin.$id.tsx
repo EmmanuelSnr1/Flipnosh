@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { store } from "@/lib/mock-store";
+import { store } from "@/stores/mock-store";
 import type { Restaurant } from "@/types";
 import { ChevronLeft } from "lucide-react";
 

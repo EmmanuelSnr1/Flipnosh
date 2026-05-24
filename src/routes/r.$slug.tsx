@@ -1,5 +1,5 @@
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
-import { store } from "@/lib/mock-store";
+import { store } from "@/stores/mock-store";
 
 export const Route = createFileRoute("/r/$slug")({
   loader: ({ params }) => {

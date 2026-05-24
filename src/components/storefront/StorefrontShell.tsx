@@ -1,7 +1,7 @@
 import type { Restaurant } from "@/types";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
-import { cart } from "@/lib/cart-store";
+import { cart } from "@/stores/cart-store";
 
 const themeClassMap: Record<string, string> = {
   classic: "theme-classic",

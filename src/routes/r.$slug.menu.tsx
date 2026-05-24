@@ -1,13 +1,13 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { store, useStore } from "@/lib/mock-store";
+import { store, useStore } from "@/stores/mock-store";
 import type { Restaurant, MenuItem } from "@/types";
 import { StorefrontShell } from "@/components/storefront/StorefrontShell";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";
 import { ItemDetailModal } from "@/components/storefront/ItemDetailModal";
 import { CartDrawer } from "@/components/storefront/CartDrawer";
-import { useCart } from "@/lib/cart-store";
-import { gbp } from "@/lib/format";
+import { useCart } from "@/stores/cart-store";
+import { gbp } from "@/lib/utils/format";
 import { ShoppingBag, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/r/$slug/menu")({

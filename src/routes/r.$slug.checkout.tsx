@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate, notFound } from "@tanstack/react-router";
 import { useState } from "react";
-import { store, useStore } from "@/lib/mock-store";
-import { cart, useCart } from "@/lib/cart-store";
-import { gbp } from "@/lib/format";
+import { store, useStore } from "@/stores/mock-store";
+import { cart, useCart } from "@/stores/cart-store";
+import { gbp } from "@/lib/utils/format";
 import type { Restaurant } from "@/types";
 import { ChevronLeft } from "lucide-react";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";

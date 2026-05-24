@@ -1,5 +1,5 @@
-import { useCart, cart } from "@/lib/cart-store";
-import { gbp } from "@/lib/format";
+import { useCart, cart } from "@/stores/cart-store";
+import { gbp } from "@/lib/utils/format";
 import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 

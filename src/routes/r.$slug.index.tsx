@@ -1,8 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { store, useStore } from "@/lib/mock-store";
+import { store, useStore } from "@/stores/mock-store";
 import type { Restaurant } from "@/types";
 import { StorefrontShell } from "@/components/storefront/StorefrontShell";
-import { gbp } from "@/lib/format";
+import { gbp } from "@/lib/utils/format";
 import { Clock, MapPin, Phone, ArrowRight, Star } from "lucide-react";
 
 export const Route = createFileRoute("/r/$slug/")({

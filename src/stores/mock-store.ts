@@ -13,10 +13,10 @@ import type {
   OnboardingState,
   MenuCategory,
 } from "@/types";
-import { allRestaurants } from "@/lib/mock-data/restaurants";
-import { mockOrders } from "@/lib/mock-data/orders";
-import { mockCampaigns } from "@/lib/mock-data/campaigns";
-import { mockCustomers } from "@/lib/mock-data/customers";
+import { allRestaurants } from "@/data/restaurants";
+import { mockOrders } from "@/data/orders";
+import { mockCampaigns } from "@/data/campaigns";
+import { mockCustomers } from "@/data/customers";
 
 type State = {
   restaurants: Restaurant[];

@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Receipt, UtensilsCrossed, Users, QrCode, CreditCard, Settings, Palette,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
-import { useStore } from "@/lib/mock-store";
+import { useStore } from "@/stores/mock-store";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
 const nav: NavItem[] = [

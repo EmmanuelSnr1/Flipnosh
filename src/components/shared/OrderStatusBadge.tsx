@@ -1,5 +1,5 @@
 import type { OrderStatus } from "@/types";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE } from "@/lib/mock-store";
+import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE } from "@/stores/mock-store";
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   return (

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { QrCode, Copy, Check } from "lucide-react";
 import { useState } from "react";
-import { gbp } from "@/lib/format";
+import { gbp } from "@/lib/utils/format";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/campaigns")({
