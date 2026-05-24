@@ -5,7 +5,7 @@ import { getServerClient } from "@/lib/supabase/server";
 // ─── getCustomersForRestaurant ────────────────────────────────────────────────
 
 export const getCustomersForRestaurant = createServerFn({ method: "GET" })
-  .validator((restaurantId: string) => z.string().uuid().parse(restaurantId))
+  .inputValidator((restaurantId: string) => z.string().uuid().parse(restaurantId))
   .handler(async ({ data: restaurantId }) => {
     const db = getServerClient();
     const { data, error } = await db

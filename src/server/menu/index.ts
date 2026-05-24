@@ -6,7 +6,7 @@ import type { TablesInsert } from "@/types/supabase";
 // ─── getMenuForRestaurant ─────────────────────────────────────────────────────
 
 export const getMenuForRestaurant = createServerFn({ method: "GET" })
-  .validator((restaurantId: string) => z.string().uuid().parse(restaurantId))
+  .inputValidator((restaurantId: string) => z.string().uuid().parse(restaurantId))
   .handler(async ({ data: restaurantId }) => {
     const db = getServerClient();
 
@@ -39,7 +39,7 @@ export const getMenuForRestaurant = createServerFn({ method: "GET" })
 // ─── createCategory ───────────────────────────────────────────────────────────
 
 export const createCategory = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: { restaurantId: string; menuId: string; name: string; sortOrder?: number }) =>
       z
         .object({
@@ -70,7 +70,7 @@ export const createCategory = createServerFn({ method: "POST" })
 // ─── updateCategory ───────────────────────────────────────────────────────────
 
 export const updateCategory = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: { id: string; name?: string; sortOrder?: number }) =>
       z
         .object({
@@ -107,7 +107,7 @@ const MenuItemSchema = z.object({
 });
 
 export const createMenuItem = createServerFn({ method: "POST" })
-  .validator((input: z.infer<typeof MenuItemSchema>) => MenuItemSchema.parse(input))
+  .inputValidator((input: z.infer<typeof MenuItemSchema>) => MenuItemSchema.parse(input))
   .handler(async ({ data }) => {
     const db = getServerClient();
     const insert: TablesInsert<"menu_items"> = {
@@ -133,7 +133,7 @@ export const createMenuItem = createServerFn({ method: "POST" })
 // ─── updateMenuItem ───────────────────────────────────────────────────────────
 
 export const updateMenuItem = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       id: string;
       name?: string;
@@ -183,7 +183,7 @@ export const updateMenuItem = createServerFn({ method: "POST" })
 // ─── toggleMenuItemAvailability ───────────────────────────────────────────────
 
 export const toggleMenuItemAvailability = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: { id: string; isAvailable: boolean }) =>
       z.object({ id: z.string().uuid(), isAvailable: z.boolean() }).parse(input),
   )

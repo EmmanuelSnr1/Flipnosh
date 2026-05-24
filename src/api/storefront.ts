@@ -8,10 +8,10 @@ import { z } from "zod";
  *
  * Supabase client is imported lazily inside the handler so this file remains
  * safe to import from client-side route loaders (TanStack Start import-protection
- * only checks top-level imports for the **/server/** pattern).
+ * only checks top-level imports for the server/ directory pattern).
  */
 export const getStorefrontBySlug = createServerFn({ method: "GET" })
-  .validator((slug: string) => z.string().min(1).parse(slug))
+  .inputValidator((slug: string) => z.string().min(1).parse(slug))
   .handler(async ({ data: slug }) => {
     const { getServerClient } = await import("@/lib/supabase/server");
     const db = getServerClient();

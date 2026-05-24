@@ -4,8 +4,10 @@ import { QrCode, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { gbp } from "@/lib/utils/format";
 import { toast } from "sonner";
+import { dashboardSearch } from "@/api/dashboard";
 
 export const Route = createFileRoute("/dashboard/campaigns")({
+  validateSearch: dashboardSearch,
   component: CampaignsPage,
 });
 

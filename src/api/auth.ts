@@ -11,7 +11,7 @@
  *
  * Supabase client imports are lazy (inside handlers) so this file is safe to
  * import from client-side route files without triggering the TanStack Start
- * import-protection plugin for **/server/** paths.
+ * import-protection plugin for files in server/ directories.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -48,7 +48,7 @@ export const requireAuth = createServerFn({ method: "GET" }).handler(
 // record and link it to the new user as owner.
 
 export const signUpAndCreateRestaurant = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       userId: string;
       restaurantName: string;
@@ -92,6 +92,11 @@ export const signUpAndCreateRestaurant = createServerFn({ method: "POST" })
     });
     if (uErr) throw new Error(uErr.message);
 
+    // 30-day Starter trial — no card required
+    const trialEndsAt = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
     // Seed default config records
     await Promise.all([
       admin.from("restaurant_branding").insert({ restaurant_id: restaurant.id }),
@@ -99,8 +104,10 @@ export const signUpAndCreateRestaurant = createServerFn({ method: "POST" })
       admin.from("fulfilment_settings").insert({ restaurant_id: restaurant.id }),
       admin.from("platform_subscriptions").insert({
         restaurant_id: restaurant.id,
-        plan: "pilot",
+        plan: "starter",
         status: "trialing",
+        trial_ends_at: trialEndsAt,
+        billing_cycle: "monthly",
       }),
     ]);
 

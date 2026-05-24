@@ -343,7 +343,11 @@ function OnboardingPage() {
       title="You're live"
       hideNav
     >
-      <CompletedStep onGoToDashboard={() => navigate({ to: "/dashboard" })} />
+      <CompletedStep
+        onGoToDashboard={() =>
+          navigate({ to: "/dashboard", search: { r: restaurantId } })
+        }
+      />
     </StepShell>
   );
 }

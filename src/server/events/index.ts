@@ -9,7 +9,7 @@ const PUBLIC_EVENT_TYPES = ["qr_scan", "page_view", "storefront_view"] as const;
 // ─── trackEvent ───────────────────────────────────────────────────────────────
 
 export const trackEvent = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       restaurantId: string;
       type: string;
@@ -36,7 +36,7 @@ export const trackEvent = createServerFn({ method: "POST" })
 // ─── trackQrScan ──────────────────────────────────────────────────────────────
 
 export const trackQrScan = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: { restaurantId: string; campaignId: string; sourceKey: string }) =>
       z
         .object({
@@ -52,7 +52,7 @@ export const trackQrScan = createServerFn({ method: "POST" })
     // Increment scan count on the campaign
     await db.rpc("increment_qr_scans" as never, {
       campaign_id: data.campaignId,
-    });
+    } as never);
 
     // Log the event
     await db.from("events").insert({

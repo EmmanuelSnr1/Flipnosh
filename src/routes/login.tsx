@@ -18,14 +18,30 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
       if (error) throw error;
 
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("Sign-in succeeded but no user ID returned.");
+
+      // Find this user's restaurant via the restaurant_users join table
+      const { data: ru } = await supabase
+        .from("restaurant_users")
+        .select("restaurant_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
       toast.success("Welcome back!");
-      navigate({ to: "/dashboard" });
+
+      if (ru?.restaurant_id) {
+        navigate({ to: "/dashboard", search: { r: ru.restaurant_id } });
+      } else {
+        // Signed in but no restaurant yet — send to onboarding
+        navigate({ to: "/onboarding", search: { step: 1, restaurantId: undefined } });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");
     } finally {

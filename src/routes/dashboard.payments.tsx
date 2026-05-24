@@ -4,8 +4,10 @@ import { CheckCircle2, CreditCard, AlertCircle, Loader2 } from "lucide-react";
 import { store, useStore } from "@/stores/mock-store";
 import type { StripeStatus } from "@/types";
 import { toast } from "sonner";
+import { dashboardSearch } from "@/api/dashboard";
 
 export const Route = createFileRoute("/dashboard/payments")({
+  validateSearch: dashboardSearch,
   component: PaymentsPage,
 });
 

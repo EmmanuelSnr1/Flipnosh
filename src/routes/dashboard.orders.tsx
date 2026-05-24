@@ -1,28 +1,33 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
+  getDashboardOrders,
+  updateOrderStatus,
   ORDER_STATUS_FLOW,
   ORDER_STATUS_LABEL,
-  store,
-  useStore,
-} from "@/stores/mock-store";
+  dashboardSearch,
+  type DashboardOrder,
+} from "@/api/dashboard";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { gbp } from "@/lib/utils/format";
-import type { Order, OrderStatus } from "@/types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/orders")({
+  validateSearch: dashboardSearch,
+  loaderDeps: ({ search }) => ({ r: (search as { r?: string }).r }),
+  loader: async ({ deps: { r } }) => getDashboardOrders({ data: r! }),
   component: OrdersPage,
 });
 
 type Filter = "active" | "completed" | "rejected" | "all";
-
-const ACTIVE: OrderStatus[] = ["pending", "accepted", "preparing", "ready"];
+const ACTIVE = ["pending", "accepted", "preparing", "ready"];
 
 function OrdersPage() {
-  const { orders } = useStore();
+  const orders = (Route.useLoaderData() ?? []) as DashboardOrder[];
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>("active");
+  const [updating, setUpdating] = useState<Set<string>>(new Set());
 
   const filtered = orders.filter((o) => {
     if (filter === "all") return true;
@@ -38,33 +43,63 @@ function OrdersPage() {
     all: orders.length,
   };
 
-  const update = (o: Order, status: OrderStatus) => {
-    store.updateOrderStatus(o.id, status);
-    if (status === "rejected") toast.error(`${o.number} rejected`);
-    else toast.success(`${o.number} → ${ORDER_STATUS_LABEL[status]}`);
+  const update = async (order: DashboardOrder, status: string) => {
+    setUpdating((prev) => new Set(prev).add(order.id));
+    try {
+      await updateOrderStatus({
+        data: {
+          orderId: order.id,
+          status: status as "pending" | "accepted" | "preparing" | "ready" | "completed" | "rejected",
+        },
+      });
+      if (status === "rejected") {
+        toast.error(`${order.order_number} rejected`);
+      } else {
+        toast.success(`${order.order_number} → ${ORDER_STATUS_LABEL[status]}`);
+      }
+      await router.invalidate();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update order status",
+      );
+    } finally {
+      setUpdating((prev) => {
+        const s = new Set(prev);
+        s.delete(order.id);
+        return s;
+      });
+    }
   };
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="Update status as orders move through the kitchen." />
+      <PageHeader
+        title="Orders"
+        subtitle="Update status as orders move through the kitchen."
+      />
       <div className="p-6 space-y-4">
+        {/* ── Filter tabs ── */}
         <div className="flex flex-wrap gap-2">
-          {(["active", "completed", "rejected", "all"] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm capitalize transition-colors ${
-                filter === f
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {f}
-              <span className={`text-xs ${filter === f ? "opacity-80" : "opacity-60"}`}>
-                {counts[f]}
-              </span>
-            </button>
-          ))}
+          {(["active", "completed", "rejected", "all"] as Filter[]).map(
+            (f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm capitalize transition-colors ${
+                  filter === f
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f}
+                <span
+                  className={`text-xs ${filter === f ? "opacity-80" : "opacity-60"}`}
+                >
+                  {counts[f]}
+                </span>
+              </button>
+            ),
+          )}
         </div>
 
         {filtered.length === 0 ? (
@@ -74,7 +109,12 @@ function OrdersPage() {
         ) : (
           <div className="grid gap-3">
             {filtered.map((o) => (
-              <OrderCard key={o.id} order={o} onUpdate={update} />
+              <OrderCard
+                key={o.id}
+                order={o}
+                onUpdate={update}
+                isUpdating={updating.has(o.id)}
+              />
             ))}
           </div>
         )}
@@ -86,31 +126,44 @@ function OrdersPage() {
 function OrderCard({
   order,
   onUpdate,
+  isUpdating,
 }: {
-  order: Order;
-  onUpdate: (o: Order, s: OrderStatus) => void;
+  order: DashboardOrder;
+  onUpdate: (o: DashboardOrder, s: string) => void;
+  isUpdating: boolean;
 }) {
-  const nextStatuses = ORDER_STATUS_FLOW[order.status];
+  const nextStatuses = ORDER_STATUS_FLOW[order.status] ?? [];
+
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold">{order.number}</h3>
-            <OrderStatusBadge status={order.status} />
-            <span className="text-xs text-muted-foreground capitalize">· {order.type}</span>
+            <h3 className="font-semibold">{order.order_number}</h3>
+            <OrderStatusBadge status={order.status as never} />
+            <span className="text-xs text-muted-foreground capitalize">
+              · {order.fulfilment_type}
+            </span>
           </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {order.customer} · {order.phone} · {order.createdAt}
+            {order.customer_name}
+            {order.customer_phone && ` · ${order.customer_phone}`} ·{" "}
+            {new Date(order.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </p>
         </div>
-        <span className="text-lg font-bold">{gbp(order.total)}</span>
+        <span className="text-lg font-bold">
+          {gbp(order.total_pence / 100)}
+        </span>
       </div>
 
       <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-        {order.items.map((it, idx) => (
-          <li key={idx}>
-            {it.quantity} × <span className="text-foreground">{it.name}</span>
+        {order.items.map((it) => (
+          <li key={it.id}>
+            {it.quantity} ×{" "}
+            <span className="text-foreground">{it.name}</span>
           </li>
         ))}
       </ul>
@@ -128,14 +181,19 @@ function OrderCard({
             return (
               <button
                 key={s}
+                disabled={isUpdating}
                 onClick={() => onUpdate(order, s)}
-                className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                   isReject
                     ? "bg-red-50 text-red-700 hover:bg-red-100"
                     : "bg-primary text-primary-foreground hover:opacity-90"
                 }`}
               >
-                {isReject ? "Reject" : `Mark ${ORDER_STATUS_LABEL[s]}`}
+                {isUpdating
+                  ? "Updating…"
+                  : isReject
+                    ? "Reject"
+                    : `Mark ${ORDER_STATUS_LABEL[s]}`}
               </button>
             );
           })}

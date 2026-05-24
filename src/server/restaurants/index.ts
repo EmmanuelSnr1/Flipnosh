@@ -6,7 +6,7 @@ import type { TablesInsert, TablesUpdate } from "@/types/supabase";
 // ─── getRestaurantBySlug ──────────────────────────────────────────────────────
 
 export const getRestaurantBySlug = createServerFn({ method: "GET" })
-  .validator((slug: string) => z.string().min(1).parse(slug))
+  .inputValidator((slug: string) => z.string().min(1).parse(slug))
   .handler(async ({ data: slug }) => {
     const db = getServerClient();
     const { data, error } = await db
@@ -59,7 +59,7 @@ const CreateRestaurantSchema = z.object({
 });
 
 export const createRestaurant = createServerFn({ method: "POST" })
-  .validator((input: z.infer<typeof CreateRestaurantSchema>) =>
+  .inputValidator((input: z.infer<typeof CreateRestaurantSchema>) =>
     CreateRestaurantSchema.parse(input),
   )
   .handler(async ({ data }) => {
@@ -138,7 +138,7 @@ const UpdateRestaurantSchema = z.object({
 });
 
 export const updateRestaurant = createServerFn({ method: "POST" })
-  .validator((input: z.infer<typeof UpdateRestaurantSchema>) =>
+  .inputValidator((input: z.infer<typeof UpdateRestaurantSchema>) =>
     UpdateRestaurantSchema.parse(input),
   )
   .handler(async ({ data: { id, patch } }) => {

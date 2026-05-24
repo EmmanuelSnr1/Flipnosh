@@ -14,7 +14,7 @@ const ORDER_STATUSES = [
 // ─── getOrdersForRestaurant ───────────────────────────────────────────────────
 
 export const getOrdersForRestaurant = createServerFn({ method: "GET" })
-  .validator((restaurantId: string) => z.string().uuid().parse(restaurantId))
+  .inputValidator((restaurantId: string) => z.string().uuid().parse(restaurantId))
   .handler(async ({ data: restaurantId }) => {
     const db = getServerClient();
 
@@ -36,7 +36,7 @@ export const getOrdersForRestaurant = createServerFn({ method: "GET" })
 // ─── updateOrderStatus ────────────────────────────────────────────────────────
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: { orderId: string; status: (typeof ORDER_STATUSES)[number] }) =>
       z
         .object({
@@ -84,7 +84,7 @@ const CreateOrderSchema = z.object({
 });
 
 export const createOrder = createServerFn({ method: "POST" })
-  .validator((input: z.infer<typeof CreateOrderSchema>) =>
+  .inputValidator((input: z.infer<typeof CreateOrderSchema>) =>
     CreateOrderSchema.parse(input),
   )
   .handler(async ({ data }) => {

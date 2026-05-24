@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -26,6 +28,7 @@ import { Route as DashboardOrdersRouteImport } from './routes/dashboard.orders'
 import { Route as DashboardMenuRouteImport } from './routes/dashboard.menu'
 import { Route as DashboardCustomersRouteImport } from './routes/dashboard.customers'
 import { Route as DashboardCampaignsRouteImport } from './routes/dashboard.campaigns'
+import { Route as DashboardBillingRouteImport } from './routes/dashboard.billing'
 import { Route as AdminIdRouteImport } from './routes/admin.$id'
 import { Route as RSlugIndexRouteImport } from './routes/r.$slug.index'
 import { Route as RSlugSuccessRouteImport } from './routes/r.$slug.success'
@@ -36,6 +39,11 @@ import { Route as RSlugCheckoutRouteImport } from './routes/r.$slug.checkout'
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -51,6 +59,11 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -118,6 +131,11 @@ const DashboardCampaignsRoute = DashboardCampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardBillingRoute = DashboardBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const AdminIdRoute = AdminIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -153,11 +171,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
+  '/features': typeof FeaturesRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
   '/admin/$id': typeof AdminIdRoute
+  '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/campaigns': typeof DashboardCampaignsRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/menu': typeof DashboardMenuRoute
@@ -176,11 +197,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/features': typeof FeaturesRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
   '/admin/$id': typeof AdminIdRoute
+  '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/campaigns': typeof DashboardCampaignsRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/menu': typeof DashboardMenuRoute
@@ -201,11 +225,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/dashboard': typeof DashboardRouteWithChildren
+  '/features': typeof FeaturesRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/signup': typeof SignupRoute
   '/admin/$id': typeof AdminIdRoute
+  '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/campaigns': typeof DashboardCampaignsRoute
   '/dashboard/customers': typeof DashboardCustomersRoute
   '/dashboard/menu': typeof DashboardMenuRoute
@@ -228,11 +255,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/features'
     | '/forgot-password'
     | '/login'
     | '/onboarding'
+    | '/pricing'
     | '/signup'
     | '/admin/$id'
+    | '/dashboard/billing'
     | '/dashboard/campaigns'
     | '/dashboard/customers'
     | '/dashboard/menu'
@@ -251,11 +281,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/features'
     | '/forgot-password'
     | '/login'
     | '/onboarding'
+    | '/pricing'
     | '/signup'
     | '/admin/$id'
+    | '/dashboard/billing'
     | '/dashboard/campaigns'
     | '/dashboard/customers'
     | '/dashboard/menu'
@@ -275,11 +308,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/features'
     | '/forgot-password'
     | '/login'
     | '/onboarding'
+    | '/pricing'
     | '/signup'
     | '/admin/$id'
+    | '/dashboard/billing'
     | '/dashboard/campaigns'
     | '/dashboard/customers'
     | '/dashboard/menu'
@@ -301,9 +337,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   DashboardRoute: typeof DashboardRouteWithChildren
+  FeaturesRoute: typeof FeaturesRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  PricingRoute: typeof PricingRoute
   SignupRoute: typeof SignupRoute
   RSlugRoute: typeof RSlugRouteWithChildren
 }
@@ -315,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -336,6 +381,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -429,6 +481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCampaignsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/billing': {
+      id: '/dashboard/billing'
+      path: '/billing'
+      fullPath: '/dashboard/billing'
+      preLoaderRoute: typeof DashboardBillingRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/admin/$id': {
       id: '/admin/$id'
       path: '/$id'
@@ -487,6 +546,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface DashboardRouteChildren {
+  DashboardBillingRoute: typeof DashboardBillingRoute
   DashboardCampaignsRoute: typeof DashboardCampaignsRoute
   DashboardCustomersRoute: typeof DashboardCustomersRoute
   DashboardMenuRoute: typeof DashboardMenuRoute
@@ -498,6 +558,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardBillingRoute: DashboardBillingRoute,
   DashboardCampaignsRoute: DashboardCampaignsRoute,
   DashboardCustomersRoute: DashboardCustomersRoute,
   DashboardMenuRoute: DashboardMenuRoute,
@@ -534,9 +595,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   DashboardRoute: DashboardRouteWithChildren,
+  FeaturesRoute: FeaturesRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  PricingRoute: PricingRoute,
   SignupRoute: SignupRoute,
   RSlugRoute: RSlugRouteWithChildren,
 }

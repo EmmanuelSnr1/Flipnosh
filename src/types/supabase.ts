@@ -516,33 +516,54 @@ export type Database = {
       }
       platform_subscriptions: {
         Row: {
+          billing_cycle: string | null
+          cancel_at_period_end: boolean | null
           created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
           id: string
           plan: string
           restaurant_id: string
           status: string
           stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_product_id: string | null
           stripe_subscription_id: string | null
+          trial_ends_at: string | null
           updated_at: string
         }
         Insert: {
+          billing_cycle?: string | null
+          cancel_at_period_end?: boolean | null
           created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           id?: string
           plan?: string
           restaurant_id: string
           status?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
           stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Update: {
+          billing_cycle?: string | null
+          cancel_at_period_end?: boolean | null
           created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
           id?: string
           plan?: string
           restaurant_id?: string
           status?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
           stripe_subscription_id?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -768,6 +789,7 @@ export type Database = {
           created_at: string
           cuisine_type: string | null
           email: string | null
+          hours: string | null
           id: string
           name: string
           onboarding_completed: boolean
@@ -787,6 +809,7 @@ export type Database = {
           created_at?: string
           cuisine_type?: string | null
           email?: string | null
+          hours?: string | null
           id?: string
           name: string
           onboarding_completed?: boolean
@@ -806,6 +829,7 @@ export type Database = {
           created_at?: string
           cuisine_type?: string | null
           email?: string | null
+          hours?: string | null
           id?: string
           name?: string
           onboarding_completed?: boolean
@@ -845,6 +869,7 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
@@ -926,20 +951,55 @@ export type TablesUpdate<
       : never
     : never
 
-// ─── Convenience row-type aliases ────────────────────────────────────────────
-export type DbRestaurant            = Tables<"restaurants">
-export type DbRestaurantBranding    = Tables<"restaurant_branding">
-export type DbRestaurantTheme       = Tables<"restaurant_theme_configs">
-export type DbRestaurantUser        = Tables<"restaurant_users">
-export type DbFulfilmentSettings    = Tables<"fulfilment_settings">
-export type DbMenu                  = Tables<"menus">
-export type DbMenuCategory          = Tables<"menu_categories">
-export type DbMenuItem              = Tables<"menu_items">
-export type DbModifierGroup         = Tables<"modifier_groups">
-export type DbModifier              = Tables<"modifiers">
-export type DbOrder                 = Tables<"orders">
-export type DbOrderItem             = Tables<"order_items">
-export type DbCustomer              = Tables<"customers">
-export type DbQrCampaign            = Tables<"qr_campaigns">
-export type DbPlatformSubscription  = Tables<"platform_subscriptions">
-export type DbEvent                 = Tables<"events">
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
+
+// ─── Convenience row-type aliases ─────────────────────────────────────────────
+export type DbRestaurant = Database["public"]["Tables"]["restaurants"]["Row"]
+export type DbRestaurantBranding = Database["public"]["Tables"]["restaurant_branding"]["Row"]
+export type DbThemeConfig = Database["public"]["Tables"]["restaurant_theme_configs"]["Row"]
+export type DbFulfilmentSettings = Database["public"]["Tables"]["fulfilment_settings"]["Row"]
+export type DbPlatformSubscription = Database["public"]["Tables"]["platform_subscriptions"]["Row"]
+export type DbOrder = Database["public"]["Tables"]["orders"]["Row"]
+export type DbOrderItem = Database["public"]["Tables"]["order_items"]["Row"]
+export type DbMenuCategory = Database["public"]["Tables"]["menu_categories"]["Row"]
+export type DbMenuItem = Database["public"]["Tables"]["menu_items"]["Row"]
+export type DbCustomer = Database["public"]["Tables"]["customers"]["Row"]
+export type DbQrCampaign = Database["public"]["Tables"]["qr_campaigns"]["Row"]

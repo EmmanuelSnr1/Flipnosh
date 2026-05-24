@@ -7,7 +7,7 @@
  *
  * Supabase client imports are lazy (inside handlers) so this file is safe to
  * import from client-side route files without triggering the TanStack Start
- * import-protection plugin for **/server/** paths.
+ * import-protection plugin for files in server/ directories.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { z } from "zod";
 // ─── saveRestaurantInfo ───────────────────────────────────────────────────────
 
 export const saveRestaurantInfo = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       restaurantId: string;
       name: string;
@@ -64,7 +64,7 @@ export const saveRestaurantInfo = createServerFn({ method: "POST" })
 // ─── saveBranding ─────────────────────────────────────────────────────────────
 
 export const saveBranding = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       restaurantId: string;
       tagline?: string;
@@ -115,7 +115,7 @@ export const saveBranding = createServerFn({ method: "POST" })
 // ─── saveThemeConfig ──────────────────────────────────────────────────────────
 
 export const saveThemeConfig = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       restaurantId: string;
       themeName?: string;
@@ -172,7 +172,7 @@ export const saveThemeConfig = createServerFn({ method: "POST" })
 // ─── saveFulfilmentSettings ───────────────────────────────────────────────────
 
 export const saveFulfilmentSettings = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: {
       restaurantId: string;
       pickupEnabled?: boolean;
@@ -211,7 +211,7 @@ export const saveFulfilmentSettings = createServerFn({ method: "POST" })
 // ─── completeOnboardingStep ───────────────────────────────────────────────────
 
 export const completeOnboardingStep = createServerFn({ method: "POST" })
-  .validator(
+  .inputValidator(
     (input: { restaurantId: string; step: string }) =>
       z.object({ restaurantId: z.string().uuid(), step: z.string() }).parse(input),
   )
@@ -228,7 +228,7 @@ export const completeOnboardingStep = createServerFn({ method: "POST" })
 // ─── markOnboardingComplete ───────────────────────────────────────────────────
 
 export const markOnboardingComplete = createServerFn({ method: "POST" })
-  .validator((restaurantId: string) => z.string().uuid().parse(restaurantId))
+  .inputValidator((restaurantId: string) => z.string().uuid().parse(restaurantId))
   .handler(async ({ data: restaurantId }) => {
     const { getAdminClient } = await import("@/lib/supabase/server");
     const db = getAdminClient();
