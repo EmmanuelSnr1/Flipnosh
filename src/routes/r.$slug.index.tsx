@@ -1,34 +1,30 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { store, useStore } from "@/stores/mock-store";
-import type { Restaurant } from "@/types";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Route as SlugRoute } from "@/routes/r.$slug";
 import { StorefrontShell } from "@/components/storefront/StorefrontShell";
 import { gbp } from "@/lib/utils/format";
 import { Clock, MapPin, Phone, ArrowRight, Star } from "lucide-react";
+import type { Restaurant } from "@/types";
 
 export const Route = createFileRoute("/r/$slug/")({
-  loader: ({ params }) => {
-    const r = store.getRestaurant(params.slug);
-    if (!r) throw notFound();
-    return { slug: params.slug };
-  },
-  head: ({ loaderData }) => ({
+  // Parent already validated and loaded the restaurant — no work needed here.
+  loader: () => ({}),
+  head: ({ params }: { params: { slug: string } }) => ({
     meta: [
       { title: `Order online · FlipNosh` },
-      {
-        name: "description",
-        content: `Order direct from ${loaderData?.slug ?? ""} on FlipNosh.`,
-      },
+      { name: "description", content: `Order direct from ${params.slug} on FlipNosh.` },
     ],
   }),
   component: HomePage,
 });
 
 function HomePage() {
-  const { slug } = Route.useLoaderData();
-  const { restaurants } = useStore();
-  const r = restaurants.find((x) => x.slug === slug) as Restaurant;
+  // Restaurant data comes from the parent /r/$slug loader — single source of truth.
+  const { restaurant: r } = SlugRoute.useLoaderData();
   const { theme, branding } = r;
-  const featured = r.menu.flatMap((c) => c.items).filter((i) => i.available).slice(0, 3);
+  const featured = r.menu
+    .flatMap((c) => c.items)
+    .filter((i) => i.available && i.modifiers !== undefined ? true : true)
+    .slice(0, 3);
 
   return (
     <StorefrontShell restaurant={r}>
@@ -51,11 +47,17 @@ function HomePage() {
           </div>
           {theme.showOpeningHours && (
             <div className="rounded-2xl border border-border bg-card p-5">
-              <h3 className="font-semibold flex items-center gap-2"><Clock className="h-4 w-4" /> Opening hours</h3>
+              <h3 className="font-semibold flex items-center gap-2">
+                <Clock className="h-4 w-4" /> Opening hours
+              </h3>
               <p className="mt-2 text-sm text-muted-foreground">{r.hours}</p>
               <div className="mt-4 border-t border-border pt-4 text-sm space-y-1.5">
-                <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {r.address}</p>
-                <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /> {r.phone}</p>
+                <p className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {r.address}
+                </p>
+                <p className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" /> {r.phone}
+                </p>
               </div>
             </div>
           )}
@@ -66,7 +68,11 @@ function HomePage() {
         <section className="mx-auto max-w-5xl px-4 sm:px-6 pb-12">
           <div className="flex items-end justify-between mb-4">
             <h2 className="text-2xl font-bold">Featured</h2>
-            <Link to="/r/$slug/menu" params={{ slug: r.slug }} className="text-sm font-medium text-primary hover:underline">
+            <Link
+              to="/r/$slug/menu"
+              params={{ slug: r.slug }}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               See full menu →
             </Link>
           </div>
@@ -80,14 +86,22 @@ function HomePage() {
               >
                 <div className="aspect-[4/3] bg-muted overflow-hidden">
                   {it.image ? (
-                    <img src={it.image} alt={it.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                    <img
+                      src={it.image}
+                      alt={it.name}
+                      className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                    />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">No image</div>
+                    <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
+                      No image
+                    </div>
                   )}
                 </div>
                 <div className="p-4">
                   <p className="font-semibold">{it.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{it.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                    {it.description}
+                  </p>
                   <p className="mt-2 text-sm font-semibold">{gbp(it.price)}</p>
                 </div>
               </Link>
@@ -103,7 +117,9 @@ function HomePage() {
             {[1, 2, 3].map((i) => (
               <div key={i} className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex gap-0.5 text-amber-500 mb-2">
-                  {[...Array(5)].map((_, j) => <Star key={j} className="h-4 w-4 fill-current" />)}
+                  {[...Array(5)].map((_, j) => (
+                    <Star key={j} className="h-4 w-4 fill-current" />
+                  ))}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   "Best in town — fast, fresh, and the chicken is unreal."
@@ -146,7 +162,7 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 function Hero({ r }: { r: Restaurant }) {
   const { theme, branding } = r;
-  const image = branding.heroImageUrl || r.heroImage;
+  const image = branding.heroImageUrl ?? r.heroImage;
 
   if (theme.heroLayout === "minimal") {
     return (
@@ -187,6 +203,7 @@ function Hero({ r }: { r: Restaurant }) {
     );
   }
 
+  // Default: image-background hero
   return (
     <section className="relative h-[60vh] min-h-[380px] w-full overflow-hidden">
       <img src={image} alt={r.name} className="absolute inset-0 h-full w-full object-cover" />

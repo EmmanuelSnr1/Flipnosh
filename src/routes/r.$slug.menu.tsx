@@ -1,7 +1,7 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { store, useStore } from "@/stores/mock-store";
-import type { Restaurant, MenuItem } from "@/types";
+import { Route as SlugRoute } from "@/routes/r.$slug";
+import type { MenuItem } from "@/types";
 import { StorefrontShell } from "@/components/storefront/StorefrontShell";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";
 import { ItemDetailModal } from "@/components/storefront/ItemDetailModal";
@@ -9,20 +9,16 @@ import { CartDrawer } from "@/components/storefront/CartDrawer";
 import { useCart } from "@/stores/cart-store";
 import { gbp } from "@/lib/utils/format";
 import { ShoppingBag, Plus } from "lucide-react";
+import type { CategoryNav, MenuLayout } from "@/types";
 
 export const Route = createFileRoute("/r/$slug/menu")({
-  loader: ({ params }) => {
-    const r = store.getRestaurant(params.slug);
-    if (!r) throw notFound();
-    return { slug: params.slug };
-  },
+  // Parent loader already fetched and validated — nothing extra needed.
+  loader: () => ({}),
   component: MenuPage,
 });
 
 function MenuPage() {
-  const { slug } = Route.useLoaderData();
-  const { restaurants } = useStore();
-  const r = restaurants.find((x) => x.slug === slug) as Restaurant;
+  const { restaurant: r } = SlugRoute.useLoaderData();
   const { theme } = r;
 
   const [selected, setSelected] = useState<MenuItem | null>(null);
@@ -44,7 +40,8 @@ function MenuPage() {
     [activeCategory, r.menu],
   );
 
-  const showBottomBar = theme.cartStyle === "bottom-bar" || theme.cartStyle === "drawer";
+  const showBottomBar =
+    theme.cartStyle === "bottom-bar" || theme.cartStyle === "drawer";
 
   return (
     <StorefrontShell restaurant={r}>
@@ -61,7 +58,13 @@ function MenuPage() {
           onChange={setActiveCategory}
         />
 
-        <div className={theme.categoryNavigation === "sidebar" ? "grid gap-6 md:grid-cols-[200px,1fr]" : ""}>
+        <div
+          className={
+            theme.categoryNavigation === "sidebar"
+              ? "grid gap-6 md:grid-cols-[200px,1fr]"
+              : ""
+          }
+        >
           {theme.categoryNavigation === "sidebar" && (
             <aside className="hidden md:block">
               <SidebarCategoryList
@@ -76,7 +79,11 @@ function MenuPage() {
             {visibleCategories.map((cat) => (
               <section key={cat.id} id={cat.id}>
                 <h2 className="text-xl font-bold mb-3">{cat.name}</h2>
-                <MenuList layout={theme.menuLayout} items={cat.items} onSelect={setSelected} />
+                <MenuList
+                  layout={theme.menuLayout}
+                  items={cat.items}
+                  onSelect={setSelected}
+                />
               </section>
             ))}
           </div>
@@ -96,10 +103,16 @@ function MenuPage() {
       )}
 
       <ItemDetailModal item={selected} onClose={() => setSelected(null)} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} restaurantSlug={r.slug} />
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        restaurantSlug={r.slug}
+      />
     </StorefrontShell>
   );
 }
+
+// ─── Category Navigation ──────────────────────────────────────────────────────
 
 function CategoryNavigation({
   mode,
@@ -107,8 +120,8 @@ function CategoryNavigation({
   active,
   onChange,
 }: {
-  mode: Restaurant["theme"]["categoryNavigation"];
-  categories: Restaurant["menu"];
+  mode: CategoryNav;
+  categories: { id: string; name: string }[];
   active: string;
   onChange: (id: string) => void;
 }) {
@@ -121,13 +134,14 @@ function CategoryNavigation({
       >
         <option value="all">All categories</option>
         {categories.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
         ))}
       </select>
     );
   }
   if (mode === "sidebar") {
-    // Sidebar rendered separately on md+; show tabs on mobile.
     return (
       <nav className="md:hidden flex gap-1.5 overflow-x-auto pb-3 text-sm">
         {[{ id: "all", name: "All" }, ...categories].map((c) => (
@@ -171,7 +185,7 @@ function SidebarCategoryList({
   active,
   onChange,
 }: {
-  categories: Restaurant["menu"];
+  categories: { id: string; name: string }[];
   active: string;
   onChange: (id: string) => void;
 }) {
@@ -194,12 +208,14 @@ function SidebarCategoryList({
   );
 }
 
+// ─── Menu List & Item Tiles ───────────────────────────────────────────────────
+
 function MenuList({
   layout,
   items,
   onSelect,
 }: {
-  layout: Restaurant["theme"]["menuLayout"];
+  layout: MenuLayout;
   items: MenuItem[];
   onSelect: (i: MenuItem) => void;
 }) {
@@ -250,13 +266,21 @@ function ItemTile({
       >
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold leading-snug">{item.name}</h3>
-          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+            {item.description}
+          </p>
           <p className="mt-2 text-sm font-semibold">{gbp(item.price)}</p>
-          {disabled && <p className="mt-1 text-xs text-muted-foreground">Sold out</p>}
+          {disabled && (
+            <p className="mt-1 text-xs text-muted-foreground">Sold out</p>
+          )}
         </div>
         {item.image && (
           <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
-            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+            <img
+              src={item.image}
+              alt={item.name}
+              className="h-full w-full object-cover"
+            />
             {!disabled && (
               <span className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
                 <Plus className="h-4 w-4" />
@@ -268,7 +292,6 @@ function ItemTile({
     );
   }
 
-  // grid & card share image-on-top
   return (
     <button
       onClick={() => !disabled && onSelect(item)}
@@ -277,19 +300,33 @@ function ItemTile({
         variant === "card" ? "shadow-sm" : ""
       }`}
     >
-      <div className={`bg-muted overflow-hidden ${variant === "card" ? "aspect-[16/10]" : "aspect-square"}`}>
+      <div
+        className={`bg-muted overflow-hidden ${
+          variant === "card" ? "aspect-[16/10]" : "aspect-square"
+        }`}
+      >
         {item.image ? (
-          <img src={item.image} alt={item.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+          <img
+            src={item.image}
+            alt={item.name}
+            className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+          />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">No image</div>
+          <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
+            No image
+          </div>
         )}
       </div>
       <div className={variant === "card" ? "p-5" : "p-3"}>
         <h3 className="font-semibold leading-snug">{item.name}</h3>
-        <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+        <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+          {item.description}
+        </p>
         <div className="mt-2 flex items-center justify-between">
           <span className="text-sm font-semibold">{gbp(item.price)}</span>
-          {disabled && <span className="text-xs text-muted-foreground">Sold out</span>}
+          {disabled && (
+            <span className="text-xs text-muted-foreground">Sold out</span>
+          )}
         </div>
       </div>
     </button>

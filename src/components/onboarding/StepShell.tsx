@@ -26,6 +26,7 @@ export function StepShell({
   onBack,
   onNext,
   nextLabel = "Continue",
+  nextLoading = false,
   hideNav = false,
   goTo,
 }: {
@@ -38,6 +39,8 @@ export function StepShell({
   onBack?: () => void;
   onNext?: () => void;
   nextLabel?: string;
+  /** Show a saving spinner on the Continue button */
+  nextLoading?: boolean;
   hideNav?: boolean;
   goTo: (step: number) => void;
 }) {
@@ -130,9 +133,11 @@ export function StepShell({
                 {onNext && (
                   <button
                     onClick={onNext}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90"
+                    disabled={nextLoading}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-60"
                   >
-                    {nextLabel} <ChevronRight className="h-4 w-4" />
+                    {nextLoading ? "Saving…" : nextLabel}{" "}
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 )}
               </footer>

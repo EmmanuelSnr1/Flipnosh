@@ -1,44 +1,47 @@
-import { createFileRoute, Link, useNavigate, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { store, useStore } from "@/stores/mock-store";
+import { Route as SlugRoute } from "@/routes/r.$slug";
+import { store } from "@/stores/mock-store";
 import { cart, useCart } from "@/stores/cart-store";
 import { gbp } from "@/lib/utils/format";
-import type { Restaurant } from "@/types";
 import { ChevronLeft } from "lucide-react";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";
 import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/r/$slug/checkout")({
-  loader: ({ params }): { slug: string } => {
-    const r = store.getRestaurant(params.slug);
-    if (!r) throw notFound();
-    return { slug: params.slug };
-  },
+  loader: () => ({}),
   component: CheckoutPage,
 });
 
 function CheckoutPage() {
-  const { slug } = Route.useLoaderData();
-  const storeState = useStore();
-  const restaurant = storeState.restaurants.find((r) => r.slug === slug) as Restaurant;
+  const { restaurant } = SlugRoute.useLoaderData();
   const state = useCart();
   const navigate = useNavigate();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const total = state.items.reduce((sum, i) => {
+
+  const subtotal = state.items.reduce((sum, i) => {
     const mods = i.modifiers.reduce((s, m) => s + m.price, 0);
     return sum + (i.price + mods) * i.quantity;
   }, 0);
-  const fee = state.fulfillment === "delivery" ? 2.5 : 0;
+
+  // Use real fulfilment delivery fee if available, else hardcoded pilot default
+  const deliveryFee =
+    state.fulfillment === "delivery"
+      ? (restaurant.fulfilment.delivery.fee ?? 2.5)
+      : 0;
+  const total = subtotal + deliveryFee;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+
     const items = state.items.map((i) => {
       const mods = i.modifiers.reduce((s, m) => s + m.price, 0);
       return {
@@ -51,7 +54,8 @@ function CheckoutPage() {
         price: i.price + mods,
       };
     });
-    // Simulate a brief processing delay
+
+    // Mock order creation — Stripe/real orders are Phase 2
     setTimeout(() => {
       const order = store.createOrder({
         restaurantSlug: restaurant.slug,
@@ -60,9 +64,14 @@ function CheckoutPage() {
         phone,
         type: state.fulfillment,
         items,
-        total: total + fee,
+        total,
         notes:
-          [notes, state.fulfillment === "delivery" && address ? `Address: ${address}` : ""]
+          [
+            notes,
+            state.fulfillment === "delivery" && address
+              ? `Address: ${address}`
+              : "",
+          ]
             .filter(Boolean)
             .join(" · ") || undefined,
       });
@@ -81,7 +90,11 @@ function CheckoutPage() {
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
         <div>
           <p className="text-muted-foreground">Your cart is empty.</p>
-          <Link to="/r/$slug" params={{ slug: restaurant.slug }} className="mt-3 inline-block text-primary font-medium">
+          <Link
+            to="/r/$slug"
+            params={{ slug: restaurant.slug }}
+            className="mt-3 inline-block text-primary font-medium"
+          >
             ← Back to menu
           </Link>
         </div>
@@ -94,7 +107,11 @@ function CheckoutPage() {
       {submitting && <LoadingScreen label="Placing your order…" />}
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-2">
-          <Link to="/r/$slug" params={{ slug: restaurant.slug }} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/r/$slug"
+            params={{ slug: restaurant.slug }}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ChevronLeft className="h-4 w-4" /> Back
           </Link>
           <h1 className="ml-2 font-semibold">Checkout · {restaurant.name}</h1>
@@ -113,24 +130,46 @@ function CheckoutPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Full name" value={name} onChange={setName} required />
               <Field label="Phone" value={phone} onChange={setPhone} required />
-              <div className="sm:col-span-2"><Field label="Email" type="email" value={email} onChange={setEmail} required /></div>
+              <div className="sm:col-span-2">
+                <Field
+                  label="Email"
+                  type="email"
+                  value={email}
+                  onChange={setEmail}
+                  required
+                />
+              </div>
             </div>
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="font-semibold mb-3 capitalize">{state.fulfillment} details</h2>
+            <h2 className="font-semibold mb-3 capitalize">
+              {state.fulfillment} details
+            </h2>
             {state.fulfillment === "pickup" ? (
               <p className="text-sm text-muted-foreground">
-                Pickup at <span className="font-medium text-foreground">{restaurant.address}, {restaurant.postcode}</span>. Ready in ~20 min.
+                Pickup at{" "}
+                <span className="font-medium text-foreground">
+                  {restaurant.address}, {restaurant.postcode}
+                </span>
+                . Ready in ~{restaurant.fulfilment.pickup.prepTimeMinutes} min.
               </p>
             ) : (
               <div className="grid gap-3">
-                <Field label="Delivery address" value={address} onChange={setAddress} placeholder="Street, postcode" required />
+                <Field
+                  label="Delivery address"
+                  value={address}
+                  onChange={setAddress}
+                  placeholder="Street, postcode"
+                  required
+                />
               </div>
             )}
             <div className="mt-3">
               <label className="block">
-                <span className="text-xs font-medium text-muted-foreground">Order notes (optional)</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Order notes (optional)
+                </span>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -144,7 +183,9 @@ function CheckoutPage() {
 
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Payment</h2>
-            <p className="text-sm text-muted-foreground">Card payment via Stripe (mocked for pilot).</p>
+            <p className="text-sm text-muted-foreground">
+              Card payment via Stripe (coming soon).
+            </p>
             <div className="mt-3 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
               •••• •••• •••• 4242 · 12/29
             </div>
@@ -155,7 +196,9 @@ function CheckoutPage() {
             disabled={submitting}
             className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            {submitting ? "Placing order…" : `Place order · ${gbp(total + fee)}`}
+            {submitting
+              ? "Placing order…"
+              : `Place order · ${gbp(total)}`}
           </button>
         </form>
 
@@ -164,19 +207,32 @@ function CheckoutPage() {
           <ul className="space-y-2 text-sm">
             {state.items.map((i) => (
               <li key={i.id} className="flex justify-between gap-3">
-                <span className="text-foreground">{i.quantity} × {i.name}</span>
-                <span className="text-muted-foreground">{gbp((i.price + i.modifiers.reduce((s, m) => s + m.price, 0)) * i.quantity)}</span>
+                <span className="text-foreground">
+                  {i.quantity} × {i.name}
+                </span>
+                <span className="text-muted-foreground">
+                  {gbp(
+                    (i.price + i.modifiers.reduce((s, m) => s + m.price, 0)) *
+                      i.quantity,
+                  )}
+                </span>
               </li>
             ))}
           </ul>
           <div className="my-4 border-t border-border" />
           <div className="space-y-1.5 text-sm">
-            <Row label="Subtotal" value={gbp(total)} />
-            <Row label={state.fulfillment === "delivery" ? "Delivery" : "Pickup"} value={fee ? gbp(fee) : "Free"} />
+            <Row label="Subtotal" value={gbp(subtotal)} />
+            <Row
+              label={
+                state.fulfillment === "delivery" ? "Delivery" : "Pickup"
+              }
+              value={deliveryFee ? gbp(deliveryFee) : "Free"}
+            />
           </div>
           <div className="my-4 border-t border-border" />
           <div className="flex justify-between font-semibold">
-            <span>Total</span><span>{gbp(total + fee)}</span>
+            <span>Total</span>
+            <span>{gbp(total)}</span>
           </div>
         </aside>
       </div>
@@ -185,8 +241,20 @@ function CheckoutPage() {
 }
 
 function Field({
-  label, value, onChange, type = "text", required, placeholder,
-}: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string }) {
+  label,
+  value,
+  onChange,
+  type = "text",
+  required,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+}) {
   return (
     <label className="block">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
@@ -205,7 +273,8 @@ function Field({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between text-muted-foreground">
-      <span>{label}</span><span className="text-foreground">{value}</span>
+      <span>{label}</span>
+      <span className="text-foreground">{value}</span>
     </div>
   );
 }

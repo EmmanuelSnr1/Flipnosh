@@ -1,21 +1,128 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { AuthShell, AuthInput, AuthButton } from "@/components/shared/AuthShell";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { Flame } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
+
+      toast.success("Welcome back!");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Sign in failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthShell
-      title="Welcome back"
-      subtitle="Sign in to your FlipNosh dashboard."
-      footer={<>No account? <Link to="/signup" className="text-primary font-medium">Sign up</Link></>}
-    >
-      <AuthInput label="Email" type="email" placeholder="you@restaurant.com" />
-      <AuthInput label="Password" type="password" placeholder="••••••••" />
-      <div className="text-right text-xs">
-        <Link to="/forgot-password" className="text-muted-foreground hover:text-foreground">Forgot password?</Link>
-      </div>
-      <AuthButton>Sign in</AuthButton>
-    </AuthShell>
+    <div className="min-h-screen flex flex-col bg-background">
+      <header className="p-6">
+        <Link to="/" className="inline-flex items-center gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Flame className="h-4 w-4" />
+          </span>
+          <span className="font-bold">FlipNosh</span>
+        </Link>
+      </header>
+
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          <h1 className="text-2xl font-bold">Welcome back</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sign in to your FlipNosh dashboard.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+            <AuthField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder="you@restaurant.com"
+              required
+            />
+            <AuthField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={setPassword}
+              placeholder="••••••••"
+              required
+            />
+            <div className="text-right text-xs">
+              <Link
+                to="/forgot-password"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+            >
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            No account?{" "}
+            <Link to="/signup" className="text-primary font-medium">
+              Sign up
+            </Link>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function AuthField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        required={required}
+        className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+      />
+    </label>
   );
 }
