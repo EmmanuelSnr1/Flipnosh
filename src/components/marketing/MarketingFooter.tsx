@@ -20,12 +20,12 @@ export function MarketingFooter() {
           <Link to="/pricing" className="hover:text-foreground transition-colors">
             Pricing
           </Link>
-          <a href="/privacy" className="hover:text-foreground transition-colors">
+          <Link to="/privacy" className="hover:text-foreground transition-colors">
             Privacy
-          </a>
-          <a href="/terms" className="hover:text-foreground transition-colors">
+          </Link>
+          <Link to="/terms" className="hover:text-foreground transition-colors">
             Terms
-          </a>
+          </Link>
           <a
             href="mailto:hello@flipnosh.com"
             className="hover:text-foreground transition-colors"

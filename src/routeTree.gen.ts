@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
@@ -36,9 +38,19 @@ import { Route as RSlugMenuRouteImport } from './routes/r.$slug.menu'
 import { Route as RSlugContactRouteImport } from './routes/r.$slug.contact'
 import { Route as RSlugCheckoutRouteImport } from './routes/r.$slug.checkout'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -176,7 +188,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/admin/$id': typeof AdminIdRoute
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/campaigns': typeof DashboardCampaignsRoute
@@ -202,7 +216,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/admin/$id': typeof AdminIdRoute
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/campaigns': typeof DashboardCampaignsRoute
@@ -230,7 +246,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/admin/$id': typeof AdminIdRoute
   '/dashboard/billing': typeof DashboardBillingRoute
   '/dashboard/campaigns': typeof DashboardCampaignsRoute
@@ -260,7 +278,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/pricing'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/admin/$id'
     | '/dashboard/billing'
     | '/dashboard/campaigns'
@@ -286,7 +306,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/pricing'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/admin/$id'
     | '/dashboard/billing'
     | '/dashboard/campaigns'
@@ -313,7 +335,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/pricing'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/admin/$id'
     | '/dashboard/billing'
     | '/dashboard/campaigns'
@@ -342,17 +366,33 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
+  TermsRoute: typeof TermsRoute
   RSlugRoute: typeof RSlugRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -600,7 +640,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
+  TermsRoute: TermsRoute,
   RSlugRoute: RSlugRouteWithChildren,
 }
 export const routeTree = rootRouteImport
