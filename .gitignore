@@ -32,3 +32,6 @@ npm-debug.log*
 
 # Cloudflare
 .wrangler/
+
+# Local Netlify folder
+.netlify

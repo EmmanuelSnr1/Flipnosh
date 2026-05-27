@@ -5,11 +5,21 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import netlify from "@netlify/vite-plugin-tanstack-start";
 
-// Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-// @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
+// Deployment target: Netlify
+// The Cloudflare plugin is disabled (`cloudflare: false`). During `vite build`,
+// @netlify/vite-plugin-tanstack-start writes the SSR function entry to
+// .netlify/v1/functions/server.mjs — picked up automatically by Netlify CI.
+//
+// To revert to Cloudflare: remove `cloudflare: false`, remove the netlify plugin,
+// restore server entry to `server`, and re-enable wrangler.jsonc.
 export default defineConfig({
+  cloudflare: false,
   tanstackStart: {
     server: { entry: "server" },
+  },
+  vite: {
+    plugins: [netlify()],
   },
 });

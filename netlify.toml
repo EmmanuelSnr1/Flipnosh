@@ -1,0 +1,37 @@
+# ─── FlipNosh · Netlify build configuration ───────────────────────────────────
+#
+# SSR is handled by @netlify/vite-plugin-tanstack-start.
+# During `vite build` the plugin writes the SSR function to:
+#   .netlify/v1/functions/server.mjs
+# Static assets are served from dist/client/ by Netlify's CDN edge.
+#
+# Required environment variables (set in Netlify → Site → Environment variables):
+#   VITE_SUPABASE_URL          Public Supabase project URL
+#   VITE_SUPABASE_ANON_KEY     Public Supabase anon key
+#   SUPABASE_SERVICE_ROLE_KEY  Server-only Supabase service role key (never VITE_ prefix)
+#   STRIPE_SECRET_KEY          Server-only Stripe secret key
+#   STRIPE_WEBHOOK_SECRET      Stripe webhook signing secret
+# ──────────────────────────────────────────────────────────────────────────────
+
+[build]
+  command = "npm run build"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Functions are written to .netlify/v1/functions/ by the Vite plugin at build
+# time — no manual functions directory needed.
+
+# ── Headers ───────────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
