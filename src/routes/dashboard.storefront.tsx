@@ -75,6 +75,210 @@ const THEMES: { id: ThemeName; name: string; tagline: string }[] = [
   },
 ];
 
+// ── Layout option arrays (with tiny wireframe previews) ───────────────────────
+
+const HERO_LAYOUT_OPTIONS: Array<{ value: HeroLayout; label: string; preview: React.ReactNode }> = [
+  {
+    value: "image",
+    label: "Image bg",
+    preview: (
+      <div className="relative h-full w-full bg-zinc-300 rounded overflow-hidden">
+        <div className="absolute inset-0 bg-zinc-800/60" />
+        <div className="absolute bottom-1.5 left-1.5 space-y-0.5">
+          <div className="h-1.5 w-10 bg-white/80 rounded" />
+          <div className="h-1 w-6 bg-white/50 rounded" />
+          <div className="mt-0.5 h-2 w-5 bg-primary/80 rounded-sm" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: "split",
+    label: "Split",
+    preview: (
+      <div className="flex h-full gap-0.5 rounded overflow-hidden">
+        <div className="flex-1 bg-zinc-300" />
+        <div className="flex-1 bg-white flex flex-col justify-center gap-0.5 px-1.5">
+          <div className="h-1.5 w-full bg-zinc-300 rounded" />
+          <div className="h-1 w-3/4 bg-zinc-200 rounded" />
+          <div className="mt-1 h-2 w-5 bg-primary/70 rounded-sm" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: "minimal",
+    label: "Minimal",
+    preview: (
+      <div className="h-full w-full bg-white flex flex-col items-center justify-center gap-0.5">
+        <div className="h-2 w-12 bg-zinc-300 rounded" />
+        <div className="h-1 w-8 bg-zinc-200 rounded" />
+        <div className="mt-1 h-2 w-7 bg-primary/70 rounded-full" />
+      </div>
+    ),
+  },
+];
+
+const MENU_LAYOUT_OPTIONS: Array<{ value: MenuLayout; label: string; preview: React.ReactNode }> = [
+  {
+    value: "list",
+    label: "List",
+    preview: (
+      <div className="h-full w-full bg-white flex flex-col gap-0.5 p-1">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-1 flex-1">
+            <div className="h-full aspect-square bg-zinc-300 rounded shrink-0" />
+            <div className="flex-1 space-y-0.5">
+              <div className="h-1 w-full bg-zinc-300 rounded" />
+              <div className="h-0.5 w-2/3 bg-zinc-200 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    value: "grid",
+    label: "Grid",
+    preview: (
+      <div className="h-full w-full bg-white grid grid-cols-2 gap-0.5 p-1">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="bg-zinc-300 rounded" />
+        ))}
+      </div>
+    ),
+  },
+  {
+    value: "card",
+    label: "Cards",
+    preview: (
+      <div className="h-full w-full bg-zinc-100 flex gap-1 p-1">
+        {[0, 1].map((i) => (
+          <div key={i} className="flex-1 bg-white rounded border border-zinc-200 flex flex-col overflow-hidden">
+            <div className="flex-1 bg-zinc-300" />
+            <div className="p-0.5 space-y-0.5">
+              <div className="h-0.5 w-full bg-zinc-300 rounded" />
+              <div className="h-0.5 w-2/3 bg-zinc-200 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+];
+
+const CATEGORY_NAV_OPTIONS: Array<{ value: CategoryNav; label: string; preview: React.ReactNode }> = [
+  {
+    value: "tabs",
+    label: "Sticky tabs",
+    preview: (
+      <div className="h-full w-full bg-white flex flex-col">
+        <div className="flex gap-0.5 px-1 py-0.5 border-b border-zinc-200">
+          <div className="h-3 flex-1 bg-zinc-200 rounded-sm" />
+          <div className="h-3 flex-1 bg-primary/50 rounded-sm" />
+          <div className="h-3 flex-1 bg-zinc-200 rounded-sm" />
+        </div>
+        <div className="flex-1 p-1 grid grid-cols-2 gap-0.5">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="bg-zinc-200 rounded" />
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: "sidebar",
+    label: "Sidebar",
+    preview: (
+      <div className="h-full w-full bg-white flex gap-0.5">
+        <div className="w-1/3 border-r border-zinc-200 p-0.5 flex flex-col gap-0.5">
+          <div className="h-1.5 w-full bg-primary/50 rounded-sm" />
+          <div className="h-1.5 w-full bg-zinc-200 rounded-sm" />
+          <div className="h-1.5 w-full bg-zinc-200 rounded-sm" />
+          <div className="h-1.5 w-full bg-zinc-200 rounded-sm" />
+        </div>
+        <div className="flex-1 p-0.5 grid grid-cols-2 gap-0.5">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="bg-zinc-200 rounded" />
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: "dropdown",
+    label: "Dropdown",
+    preview: (
+      <div className="h-full w-full bg-white flex flex-col p-1 gap-1">
+        <div className="flex items-center justify-between h-4 bg-zinc-200 rounded px-1">
+          <div className="h-1 w-8 bg-zinc-400 rounded" />
+          <div className="h-1 w-1 border-r border-b border-zinc-500 rotate-45 mr-0.5" />
+        </div>
+        <div className="flex-1 grid grid-cols-2 gap-0.5">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="bg-zinc-200 rounded" />
+          ))}
+        </div>
+      </div>
+    ),
+  },
+];
+
+const CART_STYLE_OPTIONS: Array<{ value: CartStyle; label: string; preview: React.ReactNode }> = [
+  {
+    value: "drawer",
+    label: "Drawer",
+    preview: (
+      <div className="h-full w-full bg-zinc-100 flex gap-0.5">
+        <div className="flex-1 bg-white p-0.5 flex flex-col gap-0.5">
+          <div className="h-1 w-full bg-zinc-200 rounded" />
+          <div className="h-1 w-2/3 bg-zinc-200 rounded" />
+        </div>
+        <div className="w-1/3 bg-white border-l border-zinc-200 p-0.5 flex flex-col gap-0.5">
+          <div className="h-1 w-full bg-zinc-300 rounded" />
+          <div className="h-0.5 w-full bg-zinc-200 rounded" />
+          <div className="mt-auto h-2 w-full bg-primary/60 rounded-sm" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: "sidebar",
+    label: "Sidebar",
+    preview: (
+      <div className="h-full w-full bg-zinc-100 flex gap-0.5">
+        <div className="flex-1 p-0.5 grid grid-cols-2 gap-0.5 content-start">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-4 bg-white rounded border border-zinc-200" />
+          ))}
+        </div>
+        <div className="w-1/3 bg-white border-l border-zinc-200 p-0.5 flex flex-col gap-0.5">
+          <div className="h-1 w-full bg-zinc-300 rounded" />
+          <div className="h-0.5 w-3/4 bg-zinc-200 rounded" />
+          <div className="mt-auto h-2 w-full bg-primary/60 rounded-sm" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: "bottom-bar",
+    label: "Bottom bar",
+    preview: (
+      <div className="h-full w-full bg-white flex flex-col">
+        <div className="flex-1 p-0.5 grid grid-cols-2 gap-0.5 content-start">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-4 bg-zinc-200 rounded" />
+          ))}
+        </div>
+        <div className="h-4 bg-primary/60 flex items-center justify-between px-1 gap-1">
+          <div className="h-1 flex-1 bg-white/70 rounded" />
+          <div className="h-3 w-7 bg-white/90 rounded-sm shrink-0" />
+        </div>
+      </div>
+    ),
+  },
+];
+
 function StorefrontConfigPage() {
   const { restaurant, branding, theme } = DashboardRoute.useLoaderData() as DashboardContext;
   const { r } = Route.useSearch();
@@ -359,46 +563,30 @@ function StorefrontConfigPage() {
 
         {/* ── LAYOUT ── */}
         <Card title="Layout">
-          <div className="p-5 space-y-4">
-            <SelectRow<HeroLayout>
+          <div className="p-5 space-y-5">
+            <VisualSelectRow<HeroLayout>
               label="Hero layout"
               value={heroLayout}
               onChange={makeLayoutHandler(setHeroLayout, "heroLayout")}
-              options={[
-                { value: "image", label: "Image background" },
-                { value: "split", label: "Split image / text" },
-                { value: "minimal", label: "Minimal text-only" },
-              ]}
+              options={HERO_LAYOUT_OPTIONS}
             />
-            <SelectRow<MenuLayout>
+            <VisualSelectRow<MenuLayout>
               label="Menu layout"
               value={menuLayout}
               onChange={makeLayoutHandler(setMenuLayout, "menuLayout")}
-              options={[
-                { value: "list", label: "List" },
-                { value: "grid", label: "Grid" },
-                { value: "card", label: "Card" },
-              ]}
+              options={MENU_LAYOUT_OPTIONS}
             />
-            <SelectRow<CategoryNav>
+            <VisualSelectRow<CategoryNav>
               label="Category navigation"
               value={categoryNavigation}
               onChange={makeLayoutHandler(setCategoryNavigation, "categoryNavigation")}
-              options={[
-                { value: "tabs", label: "Sticky tabs" },
-                { value: "sidebar", label: "Sidebar" },
-                { value: "dropdown", label: "Dropdown" },
-              ]}
+              options={CATEGORY_NAV_OPTIONS}
             />
-            <SelectRow<CartStyle>
+            <VisualSelectRow<CartStyle>
               label="Cart style"
               value={cartStyle}
               onChange={makeLayoutHandler(setCartStyle, "cartStyle")}
-              options={[
-                { value: "drawer", label: "Drawer" },
-                { value: "sidebar", label: "Sidebar" },
-                { value: "bottom-bar", label: "Mobile bottom bar" },
-              ]}
+              options={CART_STYLE_OPTIONS}
             />
           </div>
         </Card>
@@ -623,7 +811,7 @@ function ColorField({
   );
 }
 
-function SelectRow<T extends string>({
+function VisualSelectRow<T extends string>({
   label,
   value,
   onChange,
@@ -632,25 +820,43 @@ function SelectRow<T extends string>({
   label: string;
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; preview: React.ReactNode }[];
 }) {
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
-      <div className="flex flex-wrap gap-2">
-        {options.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => onChange(o.value)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              value === o.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
+      <div className="grid grid-cols-3 gap-2">
+        {options.map((o) => {
+          const active = value === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              className={`rounded-xl border-2 overflow-hidden text-left transition-all ${
+                active
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/40"
+              }`}
+            >
+              {/* Wireframe preview */}
+              <div className="h-16 bg-muted overflow-hidden p-1.5">
+                {o.preview}
+              </div>
+              {/* Label row */}
+              <div
+                className={`flex items-center justify-between px-2 py-1.5 ${
+                  active ? "bg-primary/5" : "bg-background"
+                }`}
+              >
+                <span className="text-xs font-medium truncate">{o.label}</span>
+                {active && (
+                  <Check className="h-3 w-3 text-primary shrink-0 ml-1" />
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

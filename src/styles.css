@@ -293,3 +293,16 @@
 .card-glow:hover::before {
   opacity: 1;
 }
+
+/* ─── Prevent iOS Safari input-focus zoom ────────────────────────────────── */
+/*
+ * iOS Safari zooms in when the focused element has font-size < 16px.
+ * Applying 16px here only on narrow screens keeps the desktop size unchanged.
+ */
+@media screen and (max-width: 767px) {
+  input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
