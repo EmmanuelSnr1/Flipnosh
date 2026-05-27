@@ -113,6 +113,7 @@ export type DashboardOrderItem = {
   quantity: number;
   unit_price_pence: number;
   total_pence: number;
+  selected_modifiers: Array<{ groupName: string; optionName: string; pricePence: number }> | null;
 };
 
 export type DashboardOrder = {
@@ -128,6 +129,7 @@ export type DashboardOrder = {
   delivery_fee_pence: number;
   total_pence: number;
   notes: string | null;
+  source: string | null;
   created_at: string;
   items: DashboardOrderItem[];
 };
@@ -293,7 +295,7 @@ export const getDashboardOrders = createServerFn({ method: "GET" })
 
     const { data, error } = await db
       .from("orders")
-      .select(`*, order_items (id, name, quantity, unit_price_pence, total_pence)`)
+      .select(`*, order_items (id, name, quantity, unit_price_pence, total_pence, selected_modifiers)`)
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -313,6 +315,7 @@ export const getDashboardOrders = createServerFn({ method: "GET" })
       delivery_fee_pence: o.delivery_fee_pence,
       total_pence: o.total_pence,
       notes: o.notes,
+      source: (o as Record<string, unknown>).source as string | null ?? null,
       created_at: o.created_at,
       items: (o.order_items ?? []).map((i) => ({
         id: i.id,
@@ -320,6 +323,7 @@ export const getDashboardOrders = createServerFn({ method: "GET" })
         quantity: i.quantity,
         unit_price_pence: i.unit_price_pence,
         total_pence: i.total_pence,
+        selected_modifiers: (i.selected_modifiers as Array<{ groupName: string; optionName: string; pricePence: number }> | null) ?? [],
       })),
     }));
   });

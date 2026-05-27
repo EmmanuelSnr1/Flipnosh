@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Route as SlugRoute } from "@/routes/r.$slug";
-import { store } from "@/stores/mock-store";
 import { cart, useCart } from "@/stores/cart-store";
+import { createStorefrontOrder } from "@/api/orders";
 import { gbp } from "@/lib/utils/format";
 import { ChevronLeft } from "lucide-react";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";
@@ -19,70 +19,93 @@ function CheckoutPage() {
   const state = useCart();
   const navigate = useNavigate();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
+  const [name, setName]       = useState("");
+  const [email, setEmail]     = useState("");
+  const [phone, setPhone]     = useState("");
+  const [notes, setNotes]     = useState("");
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Totals — prices in the cart are in pounds (floats)
   const subtotal = state.items.reduce((sum, i) => {
     const mods = i.modifiers.reduce((s, m) => s + m.price, 0);
     return sum + (i.price + mods) * i.quantity;
   }, 0);
 
-  // Use real fulfilment delivery fee if available, else hardcoded pilot default
   const deliveryFee =
     state.fulfillment === "delivery"
       ? (restaurant.fulfilment.delivery.fee ?? 2.5)
       : 0;
   const total = subtotal + deliveryFee;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
 
-    const items = state.items.map((i) => {
-      const mods = i.modifiers.reduce((s, m) => s + m.price, 0);
-      return {
-        name:
-          i.name +
-          (i.modifiers.length
-            ? ` (${i.modifiers.map((m) => m.optionName).join(", ")})`
-            : ""),
-        quantity: i.quantity,
-        price: i.price + mods,
-      };
-    });
+    try {
+      const source = cart.getState().source;
 
-    // Mock order creation — Stripe/real orders are Phase 2
-    setTimeout(() => {
-      const order = store.createOrder({
-        restaurantSlug: restaurant.slug,
-        customer: name,
-        email,
-        phone,
-        type: state.fulfillment,
-        items,
-        total,
-        notes:
-          [
-            notes,
-            state.fulfillment === "delivery" && address
-              ? `Address: ${address}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" · ") || undefined,
+      // Convert pounds → pence for all monetary values
+      const subtotalPence     = Math.round(subtotal * 100);
+      const deliveryFeePence  = Math.round(deliveryFee * 100);
+      const totalPence        = Math.round(total * 100);
+
+      const orderNotes = [
+        notes,
+        state.fulfillment === "delivery" && address ? `Address: ${address}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      const result = await createStorefrontOrder({
+        data: {
+          restaurantId:    restaurant.id,
+          customerName:    name.trim(),
+          customerPhone:   phone.trim() || undefined,
+          customerEmail:   email.trim() || undefined,
+          fulfilmentType:  state.fulfillment,
+          subtotalPence,
+          deliveryFeePence,
+          totalPence,
+          notes:           orderNotes || undefined,
+          source:          source ?? undefined,
+          items: state.items.map((i) => {
+            const modsTotalPounds = i.modifiers.reduce((s, m) => s + m.price, 0);
+            const unitPricePounds = i.price + modsTotalPounds;
+            return {
+              menuItemId:        i.menuItemId,
+              name:              i.name,
+              quantity:          i.quantity,
+              unitPricePence:    Math.round(unitPricePounds * 100),
+              totalPence:        Math.round(unitPricePounds * i.quantity * 100),
+              selectedModifiers: i.modifiers.map((m) => ({
+                groupName:  m.groupName,
+                optionName: m.optionName,
+                pricePence: Math.round(m.price * 100),
+              })),
+            };
+          }),
+        },
       });
+
       cart.clear();
-      toast.success(`Order ${order.number} placed`);
       navigate({
         to: "/r/$slug/success",
         params: { slug: restaurant.slug },
-        search: { order: order.number },
+        search: (prev) => ({
+          ...prev,
+          order: result.order_number,
+          name:  name.trim(),
+          type:  state.fulfillment,
+        }),
       });
-    }, 700);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to place order. Please try again.",
+      );
+      setSubmitting(false);
+    }
   };
 
   if (state.items.length === 0) {
@@ -120,28 +143,31 @@ function CheckoutPage() {
 
       <div className="mx-auto max-w-3xl grid gap-6 p-4 sm:p-6 lg:grid-cols-[1fr,360px]">
         <form onSubmit={submit} className="space-y-5">
+          {/* ── Fulfilment ── */}
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Fulfilment</h2>
             <FulfillmentSelector restaurant={restaurant} />
           </section>
 
+          {/* ── Contact ── */}
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Contact</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Full name" value={name} onChange={setName} required />
-              <Field label="Phone" value={phone} onChange={setPhone} required />
+              <Field label="Full name"        value={name}  onChange={setName}  required />
+              <Field label="Phone"            value={phone} onChange={setPhone} required />
               <div className="sm:col-span-2">
                 <Field
-                  label="Email"
+                  label="Email (optional)"
                   type="email"
                   value={email}
                   onChange={setEmail}
-                  required
+                  placeholder="you@example.com"
                 />
               </div>
             </div>
           </section>
 
+          {/* ── Fulfilment details / notes ── */}
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3 capitalize">
               {state.fulfillment} details
@@ -173,7 +199,7 @@ function CheckoutPage() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Allergies, instructions…"
+                  placeholder="Allergies, special instructions…"
                   rows={2}
                   className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
                 />
@@ -181,14 +207,16 @@ function CheckoutPage() {
             </div>
           </section>
 
+          {/* ── Payment ── */}
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Payment</h2>
             <p className="text-sm text-muted-foreground">
-              Card payment via Stripe (coming soon).
+              Pay on{" "}
+              <span className="font-medium text-foreground">
+                {state.fulfillment === "pickup" ? "collection" : "delivery"}
+              </span>
+              . We accept cash and card.
             </p>
-            <div className="mt-3 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-              •••• •••• •••• 4242 · 12/29
-            </div>
           </section>
 
           <button
@@ -196,36 +224,40 @@ function CheckoutPage() {
             disabled={submitting}
             className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            {submitting
-              ? "Placing order…"
-              : `Place order · ${gbp(total)}`}
+            {submitting ? "Placing order…" : `Place order · ${gbp(total)}`}
           </button>
         </form>
 
+        {/* ── Order summary ── */}
         <aside className="rounded-2xl border border-border bg-card p-5 h-fit lg:sticky lg:top-4">
           <h2 className="font-semibold mb-3">Order summary</h2>
           <ul className="space-y-2 text-sm">
-            {state.items.map((i) => (
-              <li key={i.id} className="flex justify-between gap-3">
-                <span className="text-foreground">
-                  {i.quantity} × {i.name}
-                </span>
-                <span className="text-muted-foreground">
-                  {gbp(
-                    (i.price + i.modifiers.reduce((s, m) => s + m.price, 0)) *
-                      i.quantity,
+            {state.items.map((i) => {
+              const modTotal = i.modifiers.reduce((s, m) => s + m.price, 0);
+              return (
+                <li key={i.id}>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-foreground">
+                      {i.quantity} × {i.name}
+                    </span>
+                    <span className="text-muted-foreground shrink-0">
+                      {gbp((i.price + modTotal) * i.quantity)}
+                    </span>
+                  </div>
+                  {i.modifiers.length > 0 && (
+                    <p className="mt-0.5 text-xs text-muted-foreground pl-4">
+                      {i.modifiers.map((m) => m.optionName).join(", ")}
+                    </p>
                   )}
-                </span>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
           <div className="my-4 border-t border-border" />
           <div className="space-y-1.5 text-sm">
             <Row label="Subtotal" value={gbp(subtotal)} />
             <Row
-              label={
-                state.fulfillment === "delivery" ? "Delivery" : "Pickup"
-              }
+              label={state.fulfillment === "delivery" ? "Delivery" : "Pickup"}
               value={deliveryFee ? gbp(deliveryFee) : "Free"}
             />
           </div>
@@ -239,6 +271,8 @@ function CheckoutPage() {
     </div>
   );
 }
+
+// ── Shared sub-components ──────────────────────────────────────────────────────
 
 function Field({
   label,

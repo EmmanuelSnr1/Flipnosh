@@ -5,12 +5,15 @@ type CartState = {
   items: CartItem[];
   restaurantSlug: string | null;
   fulfillment: "pickup" | "delivery";
+  /** QR / campaign source key captured from the ?src= URL param */
+  source: string | null;
 };
 
 let state: CartState = {
   items: [],
   restaurantSlug: null,
   fulfillment: "pickup",
+  source: null,
 };
 
 const listeners = new Set<() => void>();
@@ -37,6 +40,9 @@ export const cart = {
   },
   setFulfillment(f: "pickup" | "delivery") {
     setState({ fulfillment: f });
+  },
+  setSource(s: string | null) {
+    setState({ source: s });
   },
   add(item: Omit<CartItem, "id">) {
     const id = `${item.menuItemId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;

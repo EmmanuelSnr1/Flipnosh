@@ -5,6 +5,8 @@ import { CheckCircle2 } from "lucide-react";
 export const Route = createFileRoute("/r/$slug/success")({
   validateSearch: (s: Record<string, unknown>) => ({
     order: typeof s.order === "string" ? s.order : undefined,
+    name:  typeof s.name  === "string" ? s.name  : undefined,
+    type:  s.type === "delivery" ? ("delivery" as const) : ("pickup" as const),
   }),
   loader: () => ({}),
   component: SuccessPage,
@@ -12,10 +14,13 @@ export const Route = createFileRoute("/r/$slug/success")({
 
 function SuccessPage() {
   const { restaurant } = SlugRoute.useLoaderData();
-  const { order } = Route.useSearch();
-  const orderNumber = order ?? `#${Math.floor(1000 + Math.random() * 9000)}`;
+  const { order, name, type } = Route.useSearch();
+  const orderNumber = order ?? "—";
 
-  const prepTime = restaurant.fulfilment.pickup.prepTimeMinutes ?? 20;
+  const prepTime =
+    type === "delivery"
+      ? (restaurant.fulfilment.delivery.etaMinutes ?? 45)
+      : (restaurant.fulfilment.pickup.prepTimeMinutes ?? 20);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background">
@@ -23,20 +28,42 @@ function SuccessPage() {
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="mt-4 text-2xl font-bold">Order placed!</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Thanks —{" "}
+          {name ? `Thanks ${name}` : "Thanks"} —{" "}
           <span className="font-medium text-foreground">{restaurant.name}</span>{" "}
-          got your order{" "}
+          has received your order{" "}
           <span className="font-medium text-foreground">{orderNumber}</span>.
-          You'll get a text when it's ready.
         </p>
-        <div className="mt-6 rounded-2xl bg-muted p-4 text-left text-sm">
-          <p className="text-muted-foreground">Address</p>
-          <p className="font-medium">
-            {restaurant.address}, {restaurant.postcode}
-          </p>
-          <p className="mt-2 text-muted-foreground">Estimated ready time</p>
-          <p className="font-medium">~{prepTime} minutes</p>
+
+        <div className="mt-6 rounded-2xl bg-muted p-4 text-left text-sm space-y-3">
+          <div>
+            <p className="text-muted-foreground text-xs uppercase tracking-wide font-medium">Fulfilment</p>
+            <p className="font-medium capitalize">{type}</p>
+          </div>
+
+          {type === "pickup" && (
+            <div>
+              <p className="text-muted-foreground text-xs uppercase tracking-wide font-medium">Pickup address</p>
+              <p className="font-medium">
+                {restaurant.address}, {restaurant.postcode}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <p className="text-muted-foreground text-xs uppercase tracking-wide font-medium">
+              Estimated {type === "pickup" ? "ready time" : "delivery time"}
+            </p>
+            <p className="font-medium">~{prepTime} minutes</p>
+          </div>
+
+          <div>
+            <p className="text-muted-foreground text-xs uppercase tracking-wide font-medium">Payment</p>
+            <p className="font-medium">
+              Pay on {type === "pickup" ? "collection" : "delivery"} · cash or card
+            </p>
+          </div>
         </div>
+
         <Link
           to="/r/$slug/menu"
           params={{ slug: restaurant.slug }}
