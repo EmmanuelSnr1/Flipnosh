@@ -132,6 +132,22 @@ export type DashboardOrder = {
   items: DashboardOrderItem[];
 };
 
+export type DashboardModifier = {
+  id: string;
+  name: string;
+  price_delta_pence: number;
+  is_available: boolean;
+};
+
+export type DashboardModifierGroup = {
+  id: string;
+  name: string;
+  required: boolean;
+  min_select: number;
+  max_select: number;
+  modifiers: DashboardModifier[];
+};
+
 export type DashboardMenuItem = {
   id: string;
   name: string;
@@ -145,6 +161,7 @@ export type DashboardMenuItem = {
   allergens: string[];
   calories_kcal: number | null;
   spice_level: number;
+  modifier_groups: DashboardModifierGroup[];
 };
 
 export type DashboardMenuCategory = {
@@ -332,7 +349,13 @@ export const getDashboardMenu = createServerFn({ method: "GET" })
       .from("menu_categories")
       .select(`
         id, name, sort_order,
-        menu_items (id, name, description, price_pence, image_url, is_available, is_featured, sort_order, dietary_labels, allergens, calories_kcal, spice_level)
+        menu_items (
+          id, name, description, price_pence, image_url, is_available, is_featured, sort_order, dietary_labels, allergens, calories_kcal, spice_level,
+          modifier_groups (
+            id, name, required, min_select, max_select,
+            modifiers (id, name, price_delta_pence, is_available)
+          )
+        )
       `)
       .eq("restaurant_id", restaurantId)
       .eq("menu_id", activeMenu.id)
@@ -674,5 +697,117 @@ export const saveFullTheme = createServerFn({ method: "POST" })
         { onConflict: "restaurant_id" },
       );
 
+    if (error) throw new Error(error.message);
+  });
+
+// ─── Modifier-group CRUD ──────────────────────────────────────────────────────
+
+export const addModifierGroup = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { restaurantId: string; menuItemId: string; name: string; required?: boolean; maxSelect?: number }) =>
+      z
+        .object({
+          restaurantId: z.string().uuid(),
+          menuItemId:   z.string().uuid(),
+          name:         z.string().min(1),
+          required:     z.boolean().default(false),
+          maxSelect:    z.number().int().positive().default(1),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data }): Promise<Omit<DashboardModifierGroup, "modifiers">> => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { data: row, error } = await db
+      .from("modifier_groups")
+      .insert({
+        restaurant_id: data.restaurantId,
+        menu_item_id:  data.menuItemId,
+        name:          data.name,
+        required:      data.required,
+        min_select:    data.required ? 1 : 0,
+        max_select:    data.maxSelect,
+      })
+      .select("id, name, required, min_select, max_select")
+      .single();
+    if (error) throw new Error(error.message);
+    return row as Omit<DashboardModifierGroup, "modifiers">;
+  });
+
+export const updateModifierGroup = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { id: string; name?: string; required?: boolean; maxSelect?: number }) =>
+      z
+        .object({
+          id:        z.string().uuid(),
+          name:      z.string().min(1).optional(),
+          required:  z.boolean().optional(),
+          maxSelect: z.number().int().positive().optional(),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data: { id, name, required, maxSelect } }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { error } = await db
+      .from("modifier_groups")
+      .update({
+        ...(name      !== undefined && { name }),
+        ...(required  !== undefined && { required, min_select: required ? 1 : 0 }),
+        ...(maxSelect !== undefined && { max_select: maxSelect }),
+      })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  });
+
+export const deleteModifierGroup = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data: { id } }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    // Delete child options first (no CASCADE in FK)
+    await db.from("modifiers").delete().eq("group_id", id);
+    const { error } = await db.from("modifier_groups").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  });
+
+// ─── Modifier-option CRUD ─────────────────────────────────────────────────────
+
+export const addModifier = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { restaurantId: string; groupId: string; name: string; priceDeltaPence?: number }) =>
+      z
+        .object({
+          restaurantId:    z.string().uuid(),
+          groupId:         z.string().uuid(),
+          name:            z.string().min(1),
+          priceDeltaPence: z.number().int().default(0),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data }): Promise<DashboardModifier> => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { data: row, error } = await db
+      .from("modifiers")
+      .insert({
+        restaurant_id:     data.restaurantId,
+        group_id:          data.groupId,
+        name:              data.name,
+        price_delta_pence: data.priceDeltaPence,
+        is_available:      true,
+      })
+      .select("id, name, price_delta_pence, is_available")
+      .single();
+    if (error) throw new Error(error.message);
+    return row as DashboardModifier;
+  });
+
+export const deleteModifier = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data: { id } }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { error } = await db.from("modifiers").delete().eq("id", id);
     if (error) throw new Error(error.message);
   });

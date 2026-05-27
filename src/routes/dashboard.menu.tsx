@@ -6,10 +6,17 @@ import {
   updateDashboardMenuItem,
   createDashboardMenuItem,
   createDashboardMenuCategory,
+  addModifierGroup,
+  updateModifierGroup,
+  deleteModifierGroup,
+  addModifier,
+  deleteModifier,
   dashboardSearch,
   type DashboardMenuItem,
   type DashboardMenuCategory,
   type DashboardMenuData,
+  type DashboardModifierGroup,
+  type DashboardModifier,
 } from "@/api/dashboard";
 import { gbp } from "@/lib/utils/format";
 import {
@@ -22,6 +29,7 @@ import {
   ChevronDown,
   ChevronUp,
   Flame,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,6 +119,10 @@ function ItemModal({
   const [saving, setSaving] = useState(false);
   const [allergensOpen, setAllergensOpen] = useState(
     (item?.allergens?.length ?? 0) > 0,
+  );
+  const [tab, setTab] = useState<"details" | "modifiers">("details");
+  const [modGroups, setModGroups] = useState<DashboardModifierGroup[]>(
+    item?.modifier_groups ?? [],
   );
 
   const set = <K extends keyof ItemFormState>(k: K, v: ItemFormState[K]) =>
@@ -205,8 +217,42 @@ function ItemModal({
           </button>
         </div>
 
+        {/* Tab bar */}
+        <div className="flex shrink-0 border-b border-border">
+          {(["details", "modifiers"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              disabled={t === "modifiers" && !isEdit}
+              title={t === "modifiers" && !isEdit ? "Save the item first to add modifiers" : undefined}
+              className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px capitalize transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                tab === t
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t}
+              {t === "modifiers" && modGroups.length > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold h-4 min-w-[1rem] px-1">
+                  {modGroups.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+        <div className="overflow-y-auto flex-1 px-5 py-4">
+          {tab === "modifiers" ? (
+            <ModifiersPanel
+              itemId={item!.id}
+              restaurantId={restaurantId}
+              groups={modGroups}
+              onGroupsChange={setModGroups}
+            />
+          ) : (
+          <div className="space-y-5">
           {/* Image preview + URL */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">
@@ -423,9 +469,12 @@ function ItemModal({
               />
             </div>
           </div>
+          </div>
+          )}
         </div>
 
-        {/* Footer */}
+        {/* Footer — only shown on the Details tab */}
+        {tab === "details" && (
         <div className="shrink-0 flex items-center justify-end gap-3 px-5 py-4 border-t border-border">
           <button
             onClick={onClose}
@@ -447,6 +496,329 @@ function ItemModal({
                 : "Add item"}
           </button>
         </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Modifiers Panel ─────────────────────────────────────────────────────────
+
+function ModifiersPanel({
+  itemId,
+  restaurantId,
+  groups,
+  onGroupsChange,
+}: {
+  itemId: string;
+  restaurantId: string;
+  groups: DashboardModifierGroup[];
+  onGroupsChange: (g: DashboardModifierGroup[]) => void;
+}) {
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [savingGroup, setSavingGroup] = useState(false);
+
+  const handleAddGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setSavingGroup(true);
+    try {
+      const row = await addModifierGroup({
+        data: { restaurantId, menuItemId: itemId, name: newGroupName.trim() },
+      });
+      onGroupsChange([...groups, { ...row, modifiers: [] }]);
+      setNewGroupName("");
+      setAddingGroup(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add group");
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    try {
+      await deleteModifierGroup({ data: { id } });
+      onGroupsChange(groups.filter((g) => g.id !== id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete group");
+    }
+  };
+
+  const handleUpdateGroup = async (
+    id: string,
+    patch: { name?: string; required?: boolean; maxSelect?: number },
+  ) => {
+    try {
+      await updateModifierGroup({ data: { id, ...patch } });
+      onGroupsChange(
+        groups.map((g) =>
+          g.id === id
+            ? {
+                ...g,
+                ...(patch.name      !== undefined && { name: patch.name }),
+                ...(patch.required  !== undefined && { required: patch.required, min_select: patch.required ? 1 : 0 }),
+                ...(patch.maxSelect !== undefined && { max_select: patch.maxSelect }),
+              }
+            : g,
+        ),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update group");
+    }
+  };
+
+  const handleAddModifier = async (groupId: string, name: string, priceDeltaPence: number) => {
+    try {
+      const row = await addModifier({ data: { restaurantId, groupId, name, priceDeltaPence } });
+      onGroupsChange(
+        groups.map((g) =>
+          g.id === groupId ? { ...g, modifiers: [...g.modifiers, row] } : g,
+        ),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add option");
+    }
+  };
+
+  const handleDeleteModifier = async (groupId: string, modifierId: string) => {
+    try {
+      await deleteModifier({ data: { id: modifierId } });
+      onGroupsChange(
+        groups.map((g) =>
+          g.id === groupId
+            ? { ...g, modifiers: g.modifiers.filter((m) => m.id !== modifierId) }
+            : g,
+        ),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete option");
+    }
+  };
+
+  return (
+    <div className="space-y-3 py-1">
+      {groups.length === 0 && !addingGroup && (
+        <p className="text-sm text-muted-foreground text-center py-6">
+          No modifier groups yet. Add one below.
+        </p>
+      )}
+
+      {groups.map((group) => (
+        <ModifierGroupCard
+          key={group.id}
+          group={group}
+          onUpdate={(patch) => handleUpdateGroup(group.id, patch)}
+          onDelete={() => handleDeleteGroup(group.id)}
+          onAddModifier={(name, price) => handleAddModifier(group.id, name, price)}
+          onDeleteModifier={(mid) => handleDeleteModifier(group.id, mid)}
+        />
+      ))}
+
+      {/* New-group inline form */}
+      {addingGroup ? (
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddGroup();
+              if (e.key === "Escape") { setAddingGroup(false); setNewGroupName(""); }
+            }}
+            placeholder="Group name, e.g. Size, Extras"
+            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={handleAddGroup}
+            disabled={!newGroupName.trim() || savingGroup}
+            className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {savingGroup ? "Adding…" : "Add"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setAddingGroup(false); setNewGroupName(""); }}
+            className="rounded-lg p-2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAddingGroup(true)}
+          className="w-full rounded-xl border-2 border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center justify-center gap-2"
+        >
+          <Plus className="h-4 w-4" /> Add modifier group
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Modifier Group Card ──────────────────────────────────────────────────────
+
+function ModifierGroupCard({
+  group,
+  onUpdate,
+  onDelete,
+  onAddModifier,
+  onDeleteModifier,
+}: {
+  group: DashboardModifierGroup;
+  onUpdate: (patch: { name?: string; required?: boolean; maxSelect?: number }) => Promise<void>;
+  onDelete: () => Promise<void>;
+  onAddModifier: (name: string, priceDeltaPence: number) => Promise<void>;
+  onDeleteModifier: (id: string) => Promise<void>;
+}) {
+  const [editName, setEditName] = useState(group.name);
+  const [addingOpt, setAddingOpt] = useState(false);
+  const [optName, setOptName] = useState("");
+  const [optPrice, setOptPrice] = useState("0.00");
+  const [savingOpt, setSavingOpt] = useState(false);
+
+  const handleNameBlur = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== group.name) {
+      onUpdate({ name: trimmed }).catch(() => setEditName(group.name));
+    } else {
+      setEditName(group.name);
+    }
+  };
+
+  const handleSaveOption = async () => {
+    if (!optName.trim()) return;
+    const p = parseFloat(optPrice);
+    const pence = Number.isNaN(p) ? 0 : Math.round(p * 100);
+    setSavingOpt(true);
+    try {
+      await onAddModifier(optName.trim(), pence);
+      setOptName("");
+      setOptPrice("0.00");
+      setAddingOpt(false);
+    } finally {
+      setSavingOpt(false);
+    }
+  };
+
+  const multi = group.max_select > 1;
+
+  return (
+    <div className="rounded-2xl border border-border overflow-hidden">
+      {/* Group header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/40 border-b border-border">
+        <input
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onBlur={handleNameBlur}
+          className="flex-1 min-w-0 bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground rounded px-1 -mx-1 focus:bg-background focus:ring-1 focus:ring-primary/30 transition-all"
+        />
+        {/* Required toggle */}
+        <button
+          type="button"
+          onClick={() => onUpdate({ required: !group.required })}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+            group.required
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {group.required ? "Required" : "Optional"}
+        </button>
+        {/* Multi-select toggle */}
+        <button
+          type="button"
+          onClick={() => onUpdate({ maxSelect: multi ? 1 : 99 })}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+            multi
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {multi ? "Multi" : "Single"}
+        </button>
+        {/* Delete group */}
+        <button
+          type="button"
+          onClick={onDelete}
+          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Options list */}
+      <div className="divide-y divide-border">
+        {group.modifiers.map((mod) => (
+          <div key={mod.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+            <span className="flex-1 min-w-0 truncate">{mod.name}</span>
+            <span className="text-xs text-muted-foreground shrink-0">
+              {mod.price_delta_pence === 0
+                ? "free"
+                : `+£${(mod.price_delta_pence / 100).toFixed(2)}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => onDeleteModifier(mod.id)}
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+
+        {/* Add-option form */}
+        {addingOpt ? (
+          <div className="flex items-center gap-1.5 px-3 py-2">
+            <input
+              autoFocus
+              value={optName}
+              onChange={(e) => setOptName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveOption();
+                if (e.key === "Escape") { setAddingOpt(false); setOptName(""); setOptPrice("0.00"); }
+              }}
+              placeholder="Option name"
+              className="flex-1 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary"
+            />
+            <span className="text-xs text-muted-foreground shrink-0">£</span>
+            <input
+              value={optPrice}
+              onChange={(e) => setOptPrice(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveOption();
+                if (e.key === "Escape") { setAddingOpt(false); setOptName(""); setOptPrice("0.00"); }
+              }}
+              placeholder="0.00"
+              className="w-16 shrink-0 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary text-right"
+            />
+            <button
+              type="button"
+              onClick={handleSaveOption}
+              disabled={!optName.trim() || savingOpt}
+              className="shrink-0 rounded-md bg-primary p-1.5 text-primary-foreground disabled:opacity-60"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAddingOpt(false); setOptName(""); setOptPrice("0.00"); }}
+              className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingOpt(true)}
+            className="w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add option
+          </button>
+        )}
       </div>
     </div>
   );
