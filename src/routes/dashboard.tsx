@@ -29,7 +29,8 @@ function DashboardLayout() {
         restaurantId={r!}
         subscription={subscription}
       />
-      <main className="flex-1 min-w-0">
+      {/* pt-14 on mobile offsets the fixed top bar height; md:pt-0 removes it on desktop */}
+      <main className="flex-1 min-w-0 pt-14 md:pt-0">
         <Outlet />
       </main>
     </div>

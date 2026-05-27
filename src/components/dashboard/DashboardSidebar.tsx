@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -9,6 +10,8 @@ import {
   Settings,
   Palette,
   Zap,
+  Menu,
+  X,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { getRemainingTrialDays } from "@/lib/billing/plans";
@@ -63,7 +66,6 @@ function PlanBadge({
 
   const { plan, status, trial_ends_at } = subscription;
 
-  // Pilot plan
   if (plan === "pilot") {
     return (
       <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs">
@@ -73,16 +75,13 @@ function PlanBadge({
     );
   }
 
-  // Active trial
   if (status === "trialing" && trial_ends_at) {
     const days = getRemainingTrialDays(trial_ends_at);
     if (days > 0) {
       return (
         <Link to="/dashboard/billing" search={{ r: restaurantId }}>
           <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs cursor-pointer hover:bg-amber-500/15 transition-colors">
-            <p className="font-semibold text-amber-600 dark:text-amber-400">
-              Free trial
-            </p>
+            <p className="font-semibold text-amber-600 dark:text-amber-400">Free trial</p>
             <p className="mt-0.5 text-muted-foreground">
               {days} day{days !== 1 ? "s" : ""} remaining
             </p>
@@ -90,7 +89,6 @@ function PlanBadge({
         </Link>
       );
     }
-    // Trial expired
     return (
       <Link to="/dashboard/billing" search={{ r: restaurantId }}>
         <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs cursor-pointer hover:bg-destructive/15 transition-colors">
@@ -101,7 +99,6 @@ function PlanBadge({
     );
   }
 
-  // Active paid plan
   if (status === "active") {
     const planLabel =
       plan === "growth" ? "Growth" : plan === "pro" ? "Pro" : "Starter";
@@ -115,7 +112,6 @@ function PlanBadge({
     );
   }
 
-  // Past due / paused / cancelled
   if (status === "past_due" || status === "paused" || status === "canceled") {
     return (
       <Link to="/dashboard/billing" search={{ r: restaurantId }}>
@@ -129,7 +125,6 @@ function PlanBadge({
     );
   }
 
-  // Fallback
   return (
     <div className="rounded-xl bg-muted p-3 text-xs">
       <p className="font-medium text-foreground capitalize">{plan}</p>
@@ -137,6 +132,79 @@ function PlanBadge({
     </div>
   );
 }
+
+// ─── Shared nav list (used in both desktop sidebar and mobile drawer) ─────────
+
+function NavList({
+  pathname,
+  restaurantId,
+  onNavigate,
+}: {
+  pathname: string;
+  restaurantId: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
+      {nav.map((n) => {
+        const active = n.exact
+          ? pathname === n.to
+          : pathname.startsWith(n.to);
+        return (
+          <Link
+            key={n.to}
+            to={n.to as "/dashboard"}
+            search={{ r: restaurantId }}
+            onClick={onNavigate}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+              active
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <n.icon className="h-4 w-4 shrink-0" />
+            {n.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ─── Sidebar header (logo + restaurant name) ──────────────────────────────────
+
+function SidebarHeader({
+  restaurantName,
+  onClose,
+}: {
+  restaurantName: string;
+  onClose?: () => void;
+}) {
+  return (
+    <div className="px-5 py-5 flex items-center justify-between gap-3 shrink-0">
+      <div className="flex items-center gap-3 min-w-0">
+        <Logo size="sm" showWordmark={false} />
+        <div className="min-w-0">
+          <p className="text-sm font-bold leading-tight">FlipNosh</p>
+          <p className="text-xs text-muted-foreground leading-tight truncate">
+            {restaurantName}
+          </p>
+        </div>
+      </div>
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="md:hidden rounded-full p-1.5 hover:bg-muted text-muted-foreground shrink-0"
+          aria-label="Close menu"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
 
 export function DashboardSidebar({
   restaurantName,
@@ -148,45 +216,83 @@ export function DashboardSidebar({
   subscription: SubscriptionInfo;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [drawerOpen]);
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar sticky top-0 h-screen overflow-y-auto">
-      <div className="px-5 py-5 flex items-center gap-3">
-        <Logo size="sm" showWordmark={false} />
-        <div>
-          <p className="text-sm font-bold leading-tight">FlipNosh</p>
-          <p className="text-xs text-muted-foreground leading-tight truncate">
-            {restaurantName}
-          </p>
+    <>
+      {/* ── Desktop sidebar (md+) ────────────────────────────────────────── */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar sticky top-0 h-screen overflow-y-auto">
+        <SidebarHeader restaurantName={restaurantName} />
+        <NavList pathname={pathname} restaurantId={restaurantId} />
+        <div className="p-3 border-t border-border shrink-0">
+          <PlanBadge subscription={subscription} restaurantId={restaurantId} />
         </div>
-      </div>
+      </aside>
 
-      <nav className="flex-1 px-3 space-y-0.5">
-        {nav.map((n) => {
-          const active = n.exact
-            ? pathname === n.to
-            : pathname.startsWith(n.to);
-          return (
-            <Link
-              key={n.to}
-              to={n.to as "/dashboard"}
-              search={{ r: restaurantId }}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
-                active
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <n.icon className="h-4 w-4" />
-              {n.label}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* ── Mobile top bar (< md) ────────────────────────────────────────── */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 h-14 flex items-center gap-3 px-4 bg-background/95 backdrop-blur border-b border-border">
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="rounded-xl p-2 hover:bg-muted text-muted-foreground transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <Logo size="sm" showWordmark={false} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight truncate">
+              {restaurantName}
+            </p>
+          </div>
+        </div>
+      </header>
 
-      <div className="p-3 border-t border-border">
-        <PlanBadge subscription={subscription} restaurantId={restaurantId} />
-      </div>
-    </aside>
+      {/* ── Mobile drawer backdrop ───────────────────────────────────────── */}
+      <div
+        aria-hidden="true"
+        onClick={() => setDrawerOpen(false)}
+        className={`md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+          drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      />
+
+      {/* ── Mobile drawer panel ──────────────────────────────────────────── */}
+      <aside
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-sidebar border-r border-border shadow-2xl transition-transform duration-300 ease-in-out ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <SidebarHeader
+          restaurantName={restaurantName}
+          onClose={() => setDrawerOpen(false)}
+        />
+        <NavList
+          pathname={pathname}
+          restaurantId={restaurantId}
+          onNavigate={() => setDrawerOpen(false)}
+        />
+        <div className="p-3 border-t border-border shrink-0">
+          <PlanBadge subscription={subscription} restaurantId={restaurantId} />
+        </div>
+      </aside>
+    </>
   );
 }
