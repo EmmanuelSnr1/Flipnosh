@@ -117,6 +117,8 @@ export type Restaurant = {
   deliveryEnabled: boolean;
   onboardingComplete: boolean;
   stripeConnected: boolean;
+  /** true when stripe_charges_enabled && stripe_payouts_enabled */
+  canAcceptOnlinePayments: boolean;
   subscriptionStatus: "trialing" | "active" | "past_due" | "canceled";
   menu: MenuCategory[];
   theme: RestaurantThemeConfig;

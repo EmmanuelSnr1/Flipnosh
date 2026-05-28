@@ -53,6 +53,14 @@ export type DbRestaurant = {
   onboarding_completed: boolean;
   cuisine_type: string | null;
   hours: string | null;
+  // Stripe Connect
+  stripe_account_id: string | null;
+  stripe_onboarding_complete: boolean;
+  stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
+  stripe_details_submitted: boolean;
+  /** true when charges_enabled && payouts_enabled */
+  can_accept_online_payments: boolean;
 };
 
 export type DbBranding = {
@@ -202,6 +210,8 @@ export const getDashboardContext = createServerFn({ method: "GET" })
         `
         id, name, slug, city, address, postcode, phone, email,
         status, onboarding_completed, cuisine_type, hours,
+        stripe_account_id, stripe_onboarding_complete,
+        stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted,
         restaurant_branding (*),
         restaurant_theme_configs (*),
         fulfilment_settings (*),
@@ -270,6 +280,12 @@ export const getDashboardContext = createServerFn({ method: "GET" })
         onboarding_completed: data.onboarding_completed,
         cuisine_type: data.cuisine_type,
         hours: data.hours as string | null,
+        stripe_account_id: data.stripe_account_id,
+        stripe_onboarding_complete: data.stripe_onboarding_complete,
+        stripe_charges_enabled: data.stripe_charges_enabled,
+        stripe_payouts_enabled: data.stripe_payouts_enabled,
+        stripe_details_submitted: data.stripe_details_submitted,
+        can_accept_online_payments: data.stripe_charges_enabled && data.stripe_payouts_enabled,
       },
       branding,
       theme,

@@ -121,6 +121,9 @@ export type SupabaseStorefront = {
   phone: string | null;
   email: string | null;
   stripe_onboarding_complete: boolean;
+  stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
+  stripe_account_id: string | null;
   onboarding_completed: boolean;
   branding: SbBranding;
   theme: SbTheme;
@@ -296,6 +299,7 @@ export function adaptStorefrontToRestaurant(sb: SupabaseStorefront): Restaurant 
     deliveryEnabled: sb.fulfilment?.delivery_enabled ?? false,
     onboardingComplete: sb.onboarding_completed,
     stripeConnected: sb.stripe_onboarding_complete,
+    canAcceptOnlinePayments: (sb.stripe_charges_enabled && sb.stripe_payouts_enabled) ?? false,
     subscriptionStatus: "trialing",
     menu,
     theme,

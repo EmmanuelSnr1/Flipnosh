@@ -54,12 +54,13 @@ function OrdersPage() {
   const [filter, setFilter]   = useState<Filter>("active");
   const [updating, setUpdating] = useState<Set<string>>(new Set());
 
-  // ── Supabase Realtime: notify on new incoming orders ──────────────────────
+  // ── Supabase Realtime: notify on new orders + payment updates ─────────────
   useEffect(() => {
     if (!restaurantId) return;
 
     const channel = supabase
       .channel(`orders:${restaurantId}`)
+      // New order inserted
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         "postgres_changes" as any,
@@ -76,6 +77,31 @@ function OrdersPage() {
             description: num ? `Order ${num} just came in` : "A new order just came in",
             duration: 8000,
           });
+          void router.invalidate();
+        },
+      )
+      // Payment status changed (e.g. webhook marks order paid)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        {
+          event:  "UPDATE",
+          schema: "public",
+          table:  "orders",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
+          const newPayment = payload.new.payment_status as string | undefined;
+          const oldPayment = payload.old.payment_status as string | undefined;
+          const num = payload.new.order_number as string | undefined;
+
+          // Only toast when payment_status changed to 'paid'
+          if (newPayment === "paid" && oldPayment !== "paid") {
+            toast.success("Payment received!", {
+              description: num ? `Order ${num} has been paid` : "An order has been paid",
+              duration: 6000,
+            });
+          }
           void router.invalidate();
         },
       )
@@ -209,6 +235,7 @@ function OrderCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold">{order.order_number}</h3>
             <OrderStatusBadge status={order.status as never} />
+            <PaymentStatusBadge status={order.payment_status} />
             <span className="text-xs text-muted-foreground capitalize">
               · {order.fulfilment_type}
             </span>
@@ -286,4 +313,39 @@ function OrderCard({
       )}
     </div>
   );
+}
+
+// ── Payment status badge ──────────────────────────────────────────────────────
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "paid":
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+          ✓ Paid
+        </span>
+      );
+    case "pending":
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+          Awaiting payment
+        </span>
+      );
+    case "failed":
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400">
+          Payment failed
+        </span>
+      );
+    case "cancelled":
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+          Cancelled
+        </span>
+      );
+    case "unpaid":
+    default:
+      // Cash-on-collection / unpaid orders — no badge needed
+      return null;
+  }
 }

@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Route as SlugRoute } from "@/routes/r.$slug";
 import { cart, useCart } from "@/stores/cart-store";
 import { createStorefrontOrder } from "@/api/orders";
+import { createCheckoutSessionForOrder } from "@/api/payments";
 import { gbp } from "@/lib/utils/format";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Lock, Banknote, CreditCard } from "lucide-react";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";
 import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { toast } from "sonner";
@@ -13,6 +14,8 @@ export const Route = createFileRoute("/r/$slug/checkout")({
   loader: () => ({}),
   component: CheckoutPage,
 });
+
+type PaymentMethod = "card" | "cash";
 
 function CheckoutPage() {
   const { restaurant } = SlugRoute.useLoaderData();
@@ -26,6 +29,14 @@ function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Payment method — default to card when Stripe is available, cash otherwise
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    restaurant.canAcceptOnlinePayments ? "card" : "cash",
+  );
+
+  // Whether this particular submission will go through Stripe
+  const useStripe = paymentMethod === "card" && restaurant.canAcceptOnlinePayments;
+
   // Totals — prices in the cart are in pounds (floats)
   const subtotal = state.items.reduce((sum, i) => {
     const mods = i.modifiers.reduce((s, m) => s + m.price, 0);
@@ -38,7 +49,8 @@ function CheckoutPage() {
       : 0;
   const total = subtotal + deliveryFee;
 
-  const submit = async (e: React.FormEvent) => {
+  // ── Pay via Stripe Checkout ───────────────────────────────────────────────
+  const submitStripe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
@@ -46,10 +58,49 @@ function CheckoutPage() {
     try {
       const source = cart.getState().source;
 
-      // Convert pounds → pence for all monetary values
-      const subtotalPence     = Math.round(subtotal * 100);
-      const deliveryFeePence  = Math.round(deliveryFee * 100);
-      const totalPence        = Math.round(total * 100);
+      const result = await createCheckoutSessionForOrder({
+        data: {
+          restaurantId:    restaurant.id,
+          customerName:    name.trim(),
+          customerPhone:   phone.trim() || undefined,
+          customerEmail:   email.trim() || undefined,
+          fulfilmentType:  state.fulfillment,
+          deliveryAddress: state.fulfillment === "delivery" ? address.trim() : undefined,
+          notes:           notes.trim() || undefined,
+          source:          source ?? undefined,
+          items: state.items.map((i) => ({
+            menuItemId:        i.menuItemId,
+            quantity:          i.quantity,
+            selectedModifiers: i.modifiers.map((m) => ({
+              groupName:  m.groupName,
+              optionName: m.optionName,
+            })),
+          })),
+        },
+      });
+
+      // Cart is cleared only on /order-success, not here
+      window.location.href = result.checkoutUrl;
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to start checkout. Please try again.",
+      );
+      setSubmitting(false);
+    }
+  };
+
+  // ── Cash / unpaid order ───────────────────────────────────────────────────
+  const submitUnpaid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+
+    try {
+      const source = cart.getState().source;
+
+      const subtotalPence    = Math.round(subtotal * 100);
+      const deliveryFeePence = Math.round(deliveryFee * 100);
+      const totalPence       = Math.round(total * 100);
 
       const orderNotes = [
         notes,
@@ -108,6 +159,8 @@ function CheckoutPage() {
     }
   };
 
+  const onSubmit = useStripe ? submitStripe : submitUnpaid;
+
   if (state.items.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
@@ -127,7 +180,11 @@ function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {submitting && <LoadingScreen label="Placing your order…" />}
+      {submitting && (
+        <LoadingScreen
+          label={useStripe ? "Redirecting to secure payment…" : "Placing your order…"}
+        />
+      )}
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-3xl px-4 py-3 flex items-center gap-2">
           <Link
@@ -142,7 +199,8 @@ function CheckoutPage() {
       </header>
 
       <div className="mx-auto max-w-3xl grid gap-6 p-4 sm:p-6 lg:grid-cols-[1fr,360px]">
-        <form onSubmit={submit} className="space-y-5">
+        <form onSubmit={onSubmit} className="space-y-5">
+
           {/* ── Fulfilment ── */}
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Fulfilment</h2>
@@ -153,15 +211,16 @@ function CheckoutPage() {
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Contact</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Full name"        value={name}  onChange={setName}  required />
-              <Field label="Phone"            value={phone} onChange={setPhone} required />
+              <Field label="Full name" value={name}  onChange={setName}  required />
+              <Field label="Phone"     value={phone} onChange={setPhone} required />
               <div className="sm:col-span-2">
                 <Field
-                  label="Email (optional)"
+                  label={useStripe ? "Email (for receipt)" : "Email (optional)"}
                   type="email"
                   value={email}
                   onChange={setEmail}
                   placeholder="you@example.com"
+                  required={useStripe}
                 />
               </div>
             </div>
@@ -207,25 +266,78 @@ function CheckoutPage() {
             </div>
           </section>
 
-          {/* ── Payment ── */}
+          {/* ── Payment method ── */}
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Payment</h2>
-            <p className="text-sm text-muted-foreground">
-              Pay on{" "}
-              <span className="font-medium text-foreground">
-                {state.fulfillment === "pickup" ? "collection" : "delivery"}
-              </span>
-              . We accept cash and card.
-            </p>
+
+            {restaurant.canAcceptOnlinePayments ? (
+              /* Show choice when Stripe is connected */
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PaymentOption
+                  id="pay-card"
+                  selected={paymentMethod === "card"}
+                  onSelect={() => setPaymentMethod("card")}
+                  icon={<CreditCard className="h-5 w-5" />}
+                  title="Pay by card"
+                  description="Secure checkout via Stripe"
+                  accent
+                />
+                <PaymentOption
+                  id="pay-cash"
+                  selected={paymentMethod === "cash"}
+                  onSelect={() => setPaymentMethod("cash")}
+                  icon={<Banknote className="h-5 w-5" />}
+                  title={
+                    state.fulfillment === "pickup"
+                      ? "Cash on collection"
+                      : "Cash on delivery"
+                  }
+                  description={
+                    state.fulfillment === "pickup"
+                      ? "Pay when you pick up your order"
+                      : "Pay the driver when your order arrives"
+                  }
+                />
+              </div>
+            ) : (
+              /* No Stripe — cash only, no choice needed */
+              <div className="flex items-start gap-3 text-sm">
+                <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  Pay on{" "}
+                  <span className="font-medium text-foreground">
+                    {state.fulfillment === "pickup" ? "collection" : "delivery"}
+                  </span>
+                  . We accept cash and card.
+                </p>
+              </div>
+            )}
+
+            {/* Stripe security note */}
+            {useStripe && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl bg-muted/60 px-3 py-2.5">
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-xs text-muted-foreground">
+                  You'll be redirected to Stripe's secure checkout. We accept Visa,
+                  Mastercard, and Amex. Your card details are never stored here.
+                </p>
+              </div>
+            )}
           </section>
 
+          {/* ── Submit ── */}
           <button
             type="submit"
             disabled={submitting}
             className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            {submitting ? "Placing order…" : `Place order · ${gbp(total)}`}
+            {submitting
+              ? useStripe ? "Redirecting…" : "Placing order…"
+              : useStripe
+                ? `Pay securely · ${gbp(total)}`
+                : `Place order · ${gbp(total)}`}
           </button>
+
         </form>
 
         {/* ── Order summary ── */}
@@ -272,7 +384,76 @@ function CheckoutPage() {
   );
 }
 
-// ── Shared sub-components ──────────────────────────────────────────────────────
+// ── Payment option card ───────────────────────────────────────────────────────
+
+function PaymentOption({
+  id,
+  selected,
+  onSelect,
+  icon,
+  title,
+  description,
+  accent,
+}: {
+  id: string;
+  selected: boolean;
+  onSelect: () => void;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  accent?: boolean;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-colors ${
+        selected
+          ? accent
+            ? "border-primary bg-primary/5"
+            : "border-foreground bg-muted/40"
+          : "border-border hover:border-muted-foreground/40"
+      }`}
+    >
+      <input
+        id={id}
+        type="radio"
+        name="payment-method"
+        value={id}
+        checked={selected}
+        onChange={onSelect}
+        className="sr-only"
+      />
+      {/* Radio dot */}
+      <span
+        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+          selected
+            ? accent
+              ? "border-primary"
+              : "border-foreground"
+            : "border-muted-foreground/40"
+        }`}
+      >
+        {selected && (
+          <span
+            className={`h-2 w-2 rounded-full ${accent ? "bg-primary" : "bg-foreground"}`}
+          />
+        )}
+      </span>
+      {/* Icon + text */}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className={selected && accent ? "text-primary" : "text-foreground"}>
+            {icon}
+          </span>
+          <span className="text-sm font-medium">{title}</span>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+    </label>
+  );
+}
+
+// ── Shared field / row components ─────────────────────────────────────────────
 
 function Field({
   label,

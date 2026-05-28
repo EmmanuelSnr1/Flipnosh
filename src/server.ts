@@ -2,6 +2,14 @@ import "./lib/utils/error-capture";
 
 import { consumeLastCapturedError } from "./lib/utils/error-capture";
 import { renderErrorPage } from "./lib/utils/error-page";
+import {
+  handleStripeConnectWebhook,
+  STRIPE_CONNECT_WEBHOOK_PATH,
+} from "./server/stripe/connect-webhook";
+import {
+  handleStripePaymentWebhook,
+  STRIPE_PAYMENT_WEBHOOK_PATH,
+} from "./server/stripe/payment-webhook";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -68,6 +76,20 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // ── Intercept raw HTTP routes BEFORE TanStack Start processes them ────────
+    // These need the raw request body (e.g. for Stripe signature verification)
+    // and must not go through the SSR render pipeline.
+    const { pathname } = new URL(request.url);
+
+    if (pathname === STRIPE_CONNECT_WEBHOOK_PATH) {
+      return handleStripeConnectWebhook(request);
+    }
+
+    if (pathname === STRIPE_PAYMENT_WEBHOOK_PATH) {
+      return handleStripePaymentWebhook(request);
+    }
+
+    // ── Normal TanStack Start SSR handler ─────────────────────────────────────
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

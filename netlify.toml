@@ -9,8 +9,9 @@
 #   VITE_SUPABASE_URL          Public Supabase project URL
 #   VITE_SUPABASE_ANON_KEY     Public Supabase anon key
 #   SUPABASE_SERVICE_ROLE_KEY  Server-only Supabase service role key (never VITE_ prefix)
-#   STRIPE_SECRET_KEY          Server-only Stripe secret key
-#   STRIPE_WEBHOOK_SECRET      Stripe webhook signing secret
+#   STRIPE_SECRET_KEY                 Server-only Stripe secret key
+#   STRIPE_CONNECT_WEBHOOK_SECRET     Stripe Connect webhook signing secret (POST /api/stripe/connect-webhook)
+#   STRIPE_PAYMENT_WEBHOOK_SECRET     Stripe payment webhook signing secret (POST /api/stripe/payment-webhook)
 # ──────────────────────────────────────────────────────────────────────────────
 
 [build]

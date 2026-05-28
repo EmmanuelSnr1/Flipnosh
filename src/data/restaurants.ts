@@ -70,6 +70,7 @@ export const naturalFingers: Restaurant = {
   deliveryEnabled: true,
   onboardingComplete: true,
   stripeConnected: true,
+  canAcceptOnlinePayments: false,
   subscriptionStatus: "active",
   theme: { ...defaultTheme },
   branding: nfBranding,
@@ -203,6 +204,7 @@ export const allRestaurants: Restaurant[] = [
     city: "Leicester",
     onboardingComplete: false,
     stripeConnected: false,
+    canAcceptOnlinePayments: false,
     subscriptionStatus: "trialing",
     openNow: false,
   },
@@ -215,6 +217,7 @@ export const allRestaurants: Restaurant[] = [
     city: "Birmingham",
     onboardingComplete: true,
     stripeConnected: false,
+    canAcceptOnlinePayments: false,
     subscriptionStatus: "past_due",
   },
 ];

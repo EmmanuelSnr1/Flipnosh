@@ -466,10 +466,13 @@ export type Database = {
           id: string
           notes: string | null
           order_number: string
+          paid_at: string | null
+          payment_failure_reason: string | null
           payment_status: string
           restaurant_id: string
           source: string | null
           status: string
+          stripe_account_id: string | null
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
           subtotal_pence: number
@@ -486,10 +489,13 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number: string
+          paid_at?: string | null
+          payment_failure_reason?: string | null
           payment_status?: string
           restaurant_id: string
           source?: string | null
           status?: string
+          stripe_account_id?: string | null
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           subtotal_pence: number
@@ -506,10 +512,13 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: string
+          paid_at?: string | null
+          payment_failure_reason?: string | null
           payment_status?: string
           restaurant_id?: string
           source?: string | null
           status?: string
+          stripe_account_id?: string | null
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
           subtotal_pence?: number
@@ -811,7 +820,10 @@ export type Database = {
           slug: string
           status: string
           stripe_account_id: string | null
+          stripe_charges_enabled: boolean
+          stripe_details_submitted: boolean
           stripe_onboarding_complete: boolean
+          stripe_payouts_enabled: boolean
           subdomain: string
           updated_at: string
         }
@@ -831,7 +843,10 @@ export type Database = {
           slug: string
           status?: string
           stripe_account_id?: string | null
+          stripe_charges_enabled?: boolean
+          stripe_details_submitted?: boolean
           stripe_onboarding_complete?: boolean
+          stripe_payouts_enabled?: boolean
           subdomain: string
           updated_at?: string
         }
@@ -851,7 +866,10 @@ export type Database = {
           slug?: string
           status?: string
           stripe_account_id?: string | null
+          stripe_charges_enabled?: boolean
+          stripe_details_submitted?: boolean
           stripe_onboarding_complete?: boolean
+          stripe_payouts_enabled?: boolean
           subdomain?: string
           updated_at?: string
         }

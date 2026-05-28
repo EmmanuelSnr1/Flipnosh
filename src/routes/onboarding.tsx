@@ -313,7 +313,7 @@ function OnboardingPage() {
         onNext={next}
         nextLoading={saving}
       >
-        <PaymentsStep />
+        <PaymentsStep restaurantId={restaurantId} />
       </StepShell>
     );
   }

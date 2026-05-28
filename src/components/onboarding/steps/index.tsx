@@ -643,7 +643,82 @@ export function FulfilmentStep() {
 
 /* ---------------- Step 6: Payments ---------------- */
 
-export function PaymentsStep() {
+/** Dispatcher — keeps the hook call order stable regardless of which variant renders. */
+export function PaymentsStep({ restaurantId }: { restaurantId?: string }) {
+  return restaurantId
+    ? <PaymentsStepReal restaurantId={restaurantId} />
+    : <PaymentsStepMock />;
+}
+
+/** Real path: shown when a real restaurantId is available (post-signup). */
+function PaymentsStepReal({ restaurantId }: { restaurantId: string }) {
+  const [connecting, setConnecting] = useState(false);
+
+  const doConnect = async () => {
+    if (connecting) return;
+    setConnecting(true);
+    try {
+      // Supabase session lives in browser localStorage — pass the token explicitly
+      const { supabase: sbClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await sbClient.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Not signed in — please log in and try again");
+        setConnecting(false);
+        return;
+      }
+
+      const { createConnectAccountLink } = await import("@/api/stripe-connect");
+      const { url } = await createConnectAccountLink({
+        data: { restaurantId, accessToken: session.access_token },
+      });
+      window.location.href = url; // Redirect to Stripe — page will leave
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start Stripe onboarding");
+      setConnecting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="rounded-3xl border border-border bg-card p-6">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <CreditCard className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="font-semibold">Connect Stripe</p>
+            <p className="text-xs text-muted-foreground">
+              FlipNosh uses Stripe to securely send payouts directly to your bank.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3 text-sm">
+          <StripeStep icon={<Building2 className="h-4 w-4" />} title="Business details" body="Legal name, trading address, VAT (if applicable)." />
+          <StripeStep icon={<ShieldCheck className="h-4 w-4" />} title="Verification" body="ID check on the business owner." />
+          <StripeStep icon={<Landmark className="h-4 w-4" />} title="Bank account" body="UK current account — payouts arrive in 2–3 business days." />
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            onClick={() => void doConnect()}
+            disabled={connecting}
+            className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            {connecting ? "Opening Stripe…" : "Connect Stripe"}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+        You can skip this step and connect Stripe later from the dashboard Payments page. Customers can still place orders — they'll pay on collection or delivery until payments are set up.
+      </div>
+    </>
+  );
+}
+
+/** Mock path: shown in demo / preview mode (no real account yet). */
+function PaymentsStepMock() {
   const { stripeStatus } = useStore();
   const [busy, setBusy] = useState(false);
 
@@ -712,7 +787,7 @@ export function PaymentsStep() {
       </div>
 
       <div className="rounded-2xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-        For the pilot, this is simulated — no real verification is performed. You'll do this in Stripe's real flow when we go live.
+        Demo mode — Stripe is simulated here. Real verification happens when you connect your actual account.
       </div>
     </>
   );
