@@ -28,9 +28,14 @@ import { z } from "zod";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function appUrl(): string {
+  // Priority:
+  //   1. VITE_APP_URL  — explicit override (works everywhere)
+  //   2. APP_URL       — alternative explicit override
+  //   3. URL           — injected automatically by Netlify on all deploys
+  //   4. localhost      — local dev fallback
   return (
     (typeof process !== "undefined"
-      ? process.env.VITE_APP_URL ?? process.env.APP_URL
+      ? process.env.VITE_APP_URL ?? process.env.APP_URL ?? process.env.URL
       : undefined) ??
     (import.meta.env.VITE_APP_URL as string | undefined) ??
     "http://localhost:8080"

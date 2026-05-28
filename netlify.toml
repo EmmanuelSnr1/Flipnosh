@@ -12,6 +12,9 @@
 #   STRIPE_SECRET_KEY                 Server-only Stripe secret key
 #   STRIPE_CONNECT_WEBHOOK_SECRET     Stripe Connect webhook signing secret (POST /api/stripe/connect-webhook)
 #   STRIPE_PAYMENT_WEBHOOK_SECRET     Stripe payment webhook signing secret (POST /api/stripe/payment-webhook)
+#   VITE_APP_URL                      Your public site URL — used for Stripe success/cancel redirect URLs
+#                                     e.g. https://your-site.netlify.app
+#                                     On Netlify this falls back to the auto-injected $URL if not set.
 # ──────────────────────────────────────────────────────────────────────────────
 
 [build]
