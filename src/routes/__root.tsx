@@ -89,6 +89,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      // Favicon — SVG mirrors the Logo component (rounded square + Flame icon)
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      // Apple touch icon fallback (browsers that don't support SVG favicons)
+      { rel: "apple-touch-icon", href: "/favicon.svg" },
     ],
   }),
   shellComponent: RootShell,

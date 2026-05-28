@@ -831,3 +831,85 @@ export const deleteModifier = createServerFn({ method: "POST" })
     const { error } = await db.from("modifiers").delete().eq("id", id);
     if (error) throw new Error(error.message);
   });
+
+// ── Delete menu item (cascades modifier groups / modifiers) ───────────────────
+
+export const deleteDashboardMenuItem = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) =>
+    z.object({ id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data: { id } }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+
+    // Cascade: modifiers → modifier_groups → item
+    const { data: groups } = await db
+      .from("modifier_groups")
+      .select("id")
+      .eq("menu_item_id", id);
+
+    if (groups && groups.length > 0) {
+      const groupIds = groups.map((g) => g.id);
+      const { error: modErr } = await db
+        .from("modifiers")
+        .delete()
+        .in("group_id", groupIds);
+      if (modErr) throw new Error(modErr.message);
+      const { error: grpErr } = await db
+        .from("modifier_groups")
+        .delete()
+        .in("id", groupIds);
+      if (grpErr) throw new Error(grpErr.message);
+    }
+
+    const { error } = await db.from("menu_items").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  });
+
+// ── Delete menu category (cascades items → modifier groups → modifiers) ───────
+
+export const deleteDashboardMenuCategory = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) =>
+    z.object({ id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data: { id } }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+
+    const { data: items } = await db
+      .from("menu_items")
+      .select("id")
+      .eq("category_id", id);
+
+    if (items && items.length > 0) {
+      const itemIds = items.map((i) => i.id);
+
+      const { data: groups } = await db
+        .from("modifier_groups")
+        .select("id")
+        .in("menu_item_id", itemIds);
+
+      if (groups && groups.length > 0) {
+        const groupIds = groups.map((g) => g.id);
+        const { error: modErr } = await db
+          .from("modifiers")
+          .delete()
+          .in("group_id", groupIds);
+        if (modErr) throw new Error(modErr.message);
+        const { error: grpErr } = await db
+          .from("modifier_groups")
+          .delete()
+          .in("id", groupIds);
+        if (grpErr) throw new Error(grpErr.message);
+      }
+
+      const { error: itemErr } = await db
+        .from("menu_items")
+        .delete()
+        .in("id", itemIds);
+      if (itemErr) throw new Error(itemErr.message);
+    }
+
+    const { error } = await db.from("menu_categories").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  });

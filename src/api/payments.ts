@@ -27,12 +27,37 @@ import { z } from "zod";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function appUrl(): string {
-  // Priority:
-  //   1. VITE_APP_URL  — explicit override (works everywhere)
-  //   2. APP_URL       — alternative explicit override
-  //   3. URL           — injected automatically by Netlify on all deploys
-  //   4. localhost      — local dev fallback
+/**
+ * Returns the origin of the current request so that Stripe's success_url /
+ * cancel_url always point back to wherever the customer actually came from.
+ *
+ * Priority:
+ *   1. Live request origin (getRequestHost + getRequestProtocol via TanStack
+ *      Start server context) — works automatically on:
+ *        • localhost:8080  (local dev)
+ *        • *.netlify.app   (deploy previews)
+ *        • flipnosh.com    (production)
+ *        • any custom restaurant domain routed to the same app
+ *   2. VITE_APP_URL env var  — explicit override / CI fallback
+ *   3. URL env var           — Netlify auto-inject
+ *   4. http://localhost:8080 — last-resort local fallback
+ */
+async function appUrl(): Promise<string> {
+  try {
+    const { getRequestHost, getRequestProtocol } = await import(
+      "@tanstack/react-start/server"
+    );
+    // xForwardedHost / xForwardedProto respect the headers Netlify (and other
+    // reverse proxies) set, so HTTPS and the public hostname are picked up
+    // correctly on deployed environments.
+    const host     = getRequestHost({ xForwardedHost: true });
+    const protocol = getRequestProtocol({ xForwardedProto: true });
+    return `${protocol}://${host}`;
+  } catch {
+    // Not in a request context (shouldn't happen inside a server fn handler,
+    // but guard against it just in case).
+  }
+
   return (
     (typeof process !== "undefined"
       ? process.env.VITE_APP_URL ?? process.env.APP_URL ?? process.env.URL
@@ -365,7 +390,7 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
     }
 
     // ── 11. Create Stripe Checkout Session (destination charge) ───────────────
-    const base = appUrl();
+    const base = await appUrl();
     const session = await stripe.checkout.sessions.create({
       mode:                "payment",
       payment_method_types: ["card"],
@@ -497,7 +522,7 @@ export const retryCheckoutSessionForOrder = createServerFn({ method: "POST" })
       });
     }
 
-    const base = appUrl();
+    const base = await appUrl();
     const session = await stripe.checkout.sessions.create({
       mode:                "payment",
       payment_method_types: ["card"],

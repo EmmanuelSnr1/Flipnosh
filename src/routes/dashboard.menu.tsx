@@ -6,6 +6,8 @@ import {
   updateDashboardMenuItem,
   createDashboardMenuItem,
   createDashboardMenuCategory,
+  deleteDashboardMenuItem,
+  deleteDashboardMenuCategory,
   addModifierGroup,
   updateModifierGroup,
   deleteModifierGroup,
@@ -832,13 +834,16 @@ function MenuRow({
   restaurantId,
   onUpdate,
   onOpenEdit,
+  onDelete,
 }: {
   item: DashboardMenuItem;
   categoryId: string;
   restaurantId: string;
   onUpdate: (id: string, patch: { isAvailable: boolean }) => void;
   onOpenEdit: (item: DashboardMenuItem, categoryId: string) => void;
+  onDelete: (id: string) => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const spice =
     item.spice_level > 0 ? SPICE_LEVELS[item.spice_level]?.icon : null;
 
@@ -909,23 +914,50 @@ function MenuRow({
         <span className="text-sm font-semibold tabular-nums">
           {gbp(item.price_pence / 100)}
         </span>
-        <button
-          onClick={toggle}
-          className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-            item.is_available
-              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-              : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-          }`}
-        >
-          {item.is_available ? "Available" : "Sold out"}
-        </button>
-        <button
-          onClick={() => onOpenEdit(item, categoryId)}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </button>
+        {confirmDelete ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-destructive font-medium">Delete?</span>
+            <button
+              onClick={() => onDelete(item.id)}
+              className="text-xs px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground hover:opacity-80 transition-opacity"
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:bg-muted transition-colors"
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={toggle}
+              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+                item.is_available
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+              }`}
+            >
+              {item.is_available ? "Available" : "Sold out"}
+            </button>
+            <button
+              onClick={() => onOpenEdit(item, categoryId)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center text-muted-foreground hover:text-destructive transition-colors"
+              title="Delete item"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -995,6 +1027,8 @@ function MenuPage() {
     item?: DashboardMenuItem;
   } | null>(null);
   const [addingCategory, setAddingCategory] = useState(false);
+  // Track which category ID is pending deletion confirmation
+  const [confirmDeleteCategoryId, setConfirmDeleteCategoryId] = useState<string | null>(null);
 
   if (!menuData) {
     return (
@@ -1039,6 +1073,32 @@ function MenuPage() {
     }
   };
 
+  const handleDeleteItem = async (id: string) => {
+    const name = menuData?.categories
+      .flatMap((c) => c.items)
+      .find((i) => i.id === id)?.name ?? "Item";
+    try {
+      await deleteDashboardMenuItem({ data: { id } });
+      toast.success(`"${name}" deleted`);
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete item");
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    const cat = menuData?.categories.find((c) => c.id === id);
+    try {
+      await deleteDashboardMenuCategory({ data: { id } });
+      toast.success(`"${cat?.name ?? "Category"}" deleted`);
+      setConfirmDeleteCategoryId(null);
+      await router.invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete category");
+      setConfirmDeleteCategoryId(null);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -1074,14 +1134,43 @@ function MenuPage() {
                   {cat.items.length} item{cat.items.length !== 1 ? "s" : ""}
                 </p>
               </div>
-              <button
-                onClick={() =>
-                  setModal({ categoryId: cat.id })
-                }
-                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add item
-              </button>
+              <div className="flex items-center gap-2">
+                {confirmDeleteCategoryId === cat.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-destructive font-medium">
+                      Delete category{cat.items.length > 0 ? ` & ${cat.items.length} item${cat.items.length !== 1 ? "s" : ""}` : ""}?
+                    </span>
+                    <button
+                      onClick={() => handleDeleteCategory(cat.id)}
+                      className="text-xs px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground hover:opacity-80 transition-opacity"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteCategoryId(null)}
+                      className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDeleteCategoryId(cat.id)}
+                    className="inline-flex items-center text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete category"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button
+                  onClick={() =>
+                    setModal({ categoryId: cat.id })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add item
+                </button>
+              </div>
             </header>
 
             <div className="divide-y divide-border">
@@ -1095,6 +1184,7 @@ function MenuPage() {
                   onOpenEdit={(item, categoryId) =>
                     setModal({ categoryId, item })
                   }
+                  onDelete={handleDeleteItem}
                 />
               ))}
               {cat.items.length === 0 && (
