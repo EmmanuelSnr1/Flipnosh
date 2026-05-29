@@ -19,7 +19,8 @@ import type {
   ThemeName,
 } from "@/types";
 import { toast } from "sonner";
-import { ExternalLink, Lock, ImagePlus, Trash2, Check } from "lucide-react";
+import { ExternalLink, Lock, Check } from "lucide-react";
+import { ImageUpload } from "@/components/shared/ImageUpload";
 
 export const Route = createFileRoute("/dashboard/storefront")({
   validateSearch: dashboardSearch,
@@ -330,7 +331,6 @@ function StorefrontConfigPage() {
   const [restaurantName, setRestaurantName] = useState(restaurant.name);
   const [tagline, setTagline] = useState(branding?.tagline ?? "");
   const [description, setDescription] = useState(branding?.description ?? "");
-  // Image previews — local blob only (Supabase Storage Phase 2)
   const [logoUrl, setLogoUrl] = useState<string | undefined>(
     branding?.logo_url ?? undefined,
   );
@@ -420,16 +420,14 @@ function StorefrontConfigPage() {
     }
   };
 
-  const pickImage =
-    (setter: (url: string) => void) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const url = URL.createObjectURL(file);
-      setter(url);
-      // Supabase Storage upload is Phase 2 — for now only local preview
-      toast.success("Image preview updated (not yet persisted)");
-    };
+  /** Save a single image URL to restaurant_branding immediately after upload. */
+  const persistImage = async (field: "logoUrl" | "heroImageUrl", url: string | null) => {
+    try {
+      await saveFullBranding({ data: { restaurantId, [field]: url } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save image");
+    }
+  };
 
   return (
     <>
@@ -481,19 +479,35 @@ function StorefrontConfigPage() {
         <Card title="Branding">
           <div className="p-5 space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
-              <ImageField
+              <ImageUpload
                 label="Logo"
-                preview={logoUrl}
-                onPick={pickImage(setLogoUrl)}
-                onClear={() => setLogoUrl(undefined)}
+                currentUrl={logoUrl}
+                bucket="restaurant-assets"
+                path={`${restaurantId}/logo`}
                 aspect="aspect-square"
+                onUploaded={(url) => {
+                  setLogoUrl(url);
+                  void persistImage("logoUrl", url);
+                }}
+                onCleared={() => {
+                  setLogoUrl(undefined);
+                  void persistImage("logoUrl", null);
+                }}
               />
-              <ImageField
+              <ImageUpload
                 label="Cover / hero image"
-                preview={heroImageUrl}
-                onPick={pickImage(setHeroImageUrl)}
-                onClear={() => setHeroImageUrl(undefined)}
+                currentUrl={heroImageUrl}
+                bucket="restaurant-assets"
+                path={`${restaurantId}/hero`}
                 aspect="aspect-[16/9]"
+                onUploaded={(url) => {
+                  setHeroImageUrl(url);
+                  void persistImage("heroImageUrl", url);
+                }}
+                onCleared={() => {
+                  setHeroImageUrl(undefined);
+                  void persistImage("heroImageUrl", null);
+                }}
               />
             </div>
 
@@ -890,43 +904,3 @@ function ToggleRow({
   );
 }
 
-function ImageField({
-  label,
-  preview,
-  onPick,
-  onClear,
-  aspect,
-}: {
-  label: string;
-  preview?: string;
-  onPick: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onClear: () => void;
-  aspect: string;
-}) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
-      <label
-        className={`relative block w-full ${aspect} rounded-2xl border-2 border-dashed border-border bg-muted overflow-hidden cursor-pointer hover:border-primary/40 transition-colors`}
-      >
-        {preview ? (
-          <img src={preview} alt={label} className="h-full w-full object-cover" />
-        ) : (
-          <span className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground text-xs gap-1">
-            <ImagePlus className="h-5 w-5" />
-            Click to upload
-          </span>
-        )}
-        <input type="file" accept="image/*" className="sr-only" onChange={onPick} />
-      </label>
-      {preview && (
-        <button
-          onClick={onClear}
-          className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 className="h-3 w-3" /> Remove
-        </button>
-      )}
-    </div>
-  );
-}

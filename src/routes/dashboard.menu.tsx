@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   getDashboardMenu,
@@ -33,6 +33,7 @@ import {
   Flame,
   Trash2,
 } from "lucide-react";
+import { ImageUpload } from "@/components/shared/ImageUpload";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/menu")({
@@ -119,6 +120,10 @@ function ItemModal({
   const isEdit = !!item;
   const [form, setForm] = useState<ItemFormState>(() => blankForm(item));
   const [saving, setSaving] = useState(false);
+  // Stable storage path — use existing item ID when editing, random UUID for new items
+  const uploadPath = useRef(
+    `${restaurantId}/${item?.id ?? crypto.randomUUID()}`,
+  );
   const [allergensOpen, setAllergensOpen] = useState(
     (item?.allergens?.length ?? 0) > 0,
   );
@@ -255,41 +260,16 @@ function ItemModal({
             />
           ) : (
           <div className="space-y-5">
-          {/* Image preview + URL */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Food image
-            </label>
-            <div className="flex gap-3 items-start">
-              <div className="h-20 w-20 shrink-0 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden text-muted-foreground">
-                {form.imageUrl ? (
-                  <img
-                    src={form.imageUrl}
-                    alt="Preview"
-                    className="h-full w-full object-cover"
-                    onError={(e) =>
-                      ((e.currentTarget as HTMLImageElement).style.display =
-                        "none")
-                    }
-                  />
-                ) : (
-                  <ImagePlus className="h-6 w-6" />
-                )}
-              </div>
-              <div className="flex-1">
-                <input
-                  type="url"
-                  value={form.imageUrl}
-                  onChange={(e) => set("imageUrl", e.target.value)}
-                  placeholder="https://example.com/burger.jpg"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Paste any public image URL. Square images work best.
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Food image — direct upload to Supabase Storage */}
+          <ImageUpload
+            label="Food image"
+            currentUrl={form.imageUrl || undefined}
+            bucket="menu-item-images"
+            path={uploadPath.current}
+            aspect="aspect-[4/3]"
+            onUploaded={(url) => set("imageUrl", url)}
+            onCleared={() => set("imageUrl", "")}
+          />
 
           {/* Name + Price */}
           <div className="grid gap-3 sm:grid-cols-[1fr,130px]">

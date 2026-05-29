@@ -94,6 +94,14 @@ function OnboardingPage() {
               restaurantId,
               tagline: r.branding.tagline,
               description: r.branding.description,
+              // Images are uploaded immediately on pick; include here as a
+              // best-effort persist in case the DB write was missed.
+              ...(r.branding.logoUrl && !r.branding.logoUrl.startsWith("blob:")
+                ? { logoUrl: r.branding.logoUrl }
+                : {}),
+              ...(r.branding.heroImageUrl && !r.branding.heroImageUrl.startsWith("blob:")
+                ? { heroImageUrl: r.branding.heroImageUrl }
+                : {}),
               instagramUrl: r.branding.socials?.instagram,
               tiktokUrl: r.branding.socials?.tiktok,
               facebookUrl: r.branding.socials?.facebook,
@@ -242,7 +250,7 @@ function OnboardingPage() {
         onNext={next}
         nextLoading={saving}
       >
-        <RestaurantInfoStep />
+        <RestaurantInfoStep restaurantId={restaurantId} />
       </StepShell>
     );
   }

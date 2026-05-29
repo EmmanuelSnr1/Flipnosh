@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ImageUpload } from "@/components/shared/ImageUpload";
 import { store, useStore } from "@/stores/mock-store";
 import type {
   CartStyle,
@@ -108,7 +109,7 @@ const CUISINES = [
 ];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export function RestaurantInfoStep() {
+export function RestaurantInfoStep({ restaurantId }: { restaurantId?: string }) {
   const { restaurants } = useStore();
   const r = restaurants.find((x) => x.slug === SLUG)!;
 
@@ -125,14 +126,6 @@ export function RestaurantInfoStep() {
 
   const toggleDay = (d: string) => {
     setOpenDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]));
-  };
-
-  const pickImage = (key: "logoUrl" | "heroImageUrl") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    store.updateBranding(SLUG, { [key]: url });
-    toast.success("Image uploaded");
   };
 
   return (
@@ -200,20 +193,50 @@ export function RestaurantInfoStep() {
 
       <Section title="Brand imagery">
         <div className="grid gap-4 sm:grid-cols-2">
-          <ImageDrop
-            label="Logo"
-            preview={r.branding.logoUrl}
-            onPick={pickImage("logoUrl")}
-            onClear={() => store.updateBranding(SLUG, { logoUrl: undefined })}
-            aspect="aspect-square"
-          />
-          <ImageDrop
-            label="Cover / hero image"
-            preview={r.branding.heroImageUrl}
-            onPick={pickImage("heroImageUrl")}
-            onClear={() => store.updateBranding(SLUG, { heroImageUrl: undefined })}
-            aspect="aspect-[16/9]"
-          />
+          {restaurantId ? (
+            <ImageUpload
+              label="Logo"
+              currentUrl={r.branding.logoUrl}
+              bucket="restaurant-assets"
+              path={`${restaurantId}/logo`}
+              aspect="aspect-square"
+              onUploaded={(url) => store.updateBranding(SLUG, { logoUrl: url })}
+              onCleared={() => store.updateBranding(SLUG, { logoUrl: undefined })}
+            />
+          ) : (
+            <ImageDrop
+              label="Logo"
+              preview={r.branding.logoUrl}
+              onPick={(e) => {
+                const file = e.target.files?.[0];
+                if (file) store.updateBranding(SLUG, { logoUrl: URL.createObjectURL(file) });
+              }}
+              onClear={() => store.updateBranding(SLUG, { logoUrl: undefined })}
+              aspect="aspect-square"
+            />
+          )}
+          {restaurantId ? (
+            <ImageUpload
+              label="Cover / hero image"
+              currentUrl={r.branding.heroImageUrl}
+              bucket="restaurant-assets"
+              path={`${restaurantId}/hero`}
+              aspect="aspect-[16/9]"
+              onUploaded={(url) => store.updateBranding(SLUG, { heroImageUrl: url })}
+              onCleared={() => store.updateBranding(SLUG, { heroImageUrl: undefined })}
+            />
+          ) : (
+            <ImageDrop
+              label="Cover / hero image"
+              preview={r.branding.heroImageUrl}
+              onPick={(e) => {
+                const file = e.target.files?.[0];
+                if (file) store.updateBranding(SLUG, { heroImageUrl: URL.createObjectURL(file) });
+              }}
+              onClear={() => store.updateBranding(SLUG, { heroImageUrl: undefined })}
+              aspect="aspect-[16/9]"
+            />
+          )}
         </div>
       </Section>
     </>

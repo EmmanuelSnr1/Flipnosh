@@ -653,6 +653,8 @@ export const saveFullBranding = createServerFn({ method: "POST" })
       restaurantId: string;
       tagline?: string;
       description?: string;
+      logoUrl?: string | null;
+      heroImageUrl?: string | null;
       instagramUrl?: string;
       tiktokUrl?: string;
       facebookUrl?: string;
@@ -670,6 +672,8 @@ export const saveFullBranding = createServerFn({ method: "POST" })
           restaurant_id: restaurantId,
           ...(rest.tagline !== undefined && { tagline: rest.tagline }),
           ...(rest.description !== undefined && { description: rest.description }),
+          ...(rest.logoUrl !== undefined && { logo_url: rest.logoUrl }),
+          ...(rest.heroImageUrl !== undefined && { hero_image_url: rest.heroImageUrl }),
           ...(rest.instagramUrl !== undefined && { instagram_url: rest.instagramUrl || null }),
           ...(rest.tiktokUrl !== undefined && { tiktok_url: rest.tiktokUrl || null }),
           ...(rest.facebookUrl !== undefined && { facebook_url: rest.facebookUrl || null }),
