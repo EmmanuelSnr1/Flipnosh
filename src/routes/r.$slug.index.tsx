@@ -85,17 +85,11 @@ function HomePage() {
                 className="group rounded-2xl border border-border bg-card overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="aspect-[4/3] bg-muted overflow-hidden">
-                  {it.image ? (
-                    <img
-                      src={it.image}
-                      alt={it.name}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-                      No image
-                    </div>
-                  )}
+                  <img
+                    src={it.image ?? "/food-placeholder.png"}
+                    alt={it.name}
+                    className={`h-full w-full transition-transform group-hover:scale-105 ${it.image ? "object-cover" : "object-contain p-4 opacity-40"}`}
+                  />
                 </div>
                 <div className="p-4">
                   <p className="font-semibold">{it.name}</p>

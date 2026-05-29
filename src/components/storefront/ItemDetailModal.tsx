@@ -92,17 +92,19 @@ export function ItemDetailModal({ item, onClose }: { item: MenuItem | null; onCl
         className="relative w-full max-w-lg max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl bg-card shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {item.image && (
-          <div className="relative h-48 sm:h-60 w-full bg-muted shrink-0">
-            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-            <button
-              onClick={onClose}
-              className="absolute top-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-md hover:bg-card"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+        <div className="relative h-48 sm:h-60 w-full bg-muted shrink-0">
+          <img
+            src={item.image ?? "/food-placeholder.png"}
+            alt={item.name}
+            className={`h-full w-full ${item.image ? "object-cover" : "object-contain p-8 opacity-40"}`}
+          />
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-md hover:bg-card"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
         <div className="flex-1 overflow-y-auto p-5 sm:p-6">
           <h2 className="text-2xl font-bold text-foreground">{item.name}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>

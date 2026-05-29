@@ -26,7 +26,6 @@ import {
   Pencil,
   Check,
   X,
-  ImagePlus,
   Star,
   ChevronDown,
   ChevronUp,
@@ -835,16 +834,12 @@ function MenuRow({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
       {/* Thumbnail */}
-      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center text-muted-foreground">
-        {item.image_url ? (
-          <img
-            src={item.image_url}
-            alt={item.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <ImagePlus className="h-4 w-4" />
-        )}
+      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center">
+        <img
+          src={item.image_url ?? "/food-placeholder.png"}
+          alt={item.name}
+          className={`h-full w-full ${item.image_url ? "object-cover" : "object-contain p-2 opacity-40"}`}
+        />
         {item.is_featured && (
           <span className="absolute top-0.5 right-0.5 rounded-full bg-amber-400 p-0.5">
             <Star className="h-2.5 w-2.5 text-white fill-white" />

@@ -274,20 +274,18 @@ function ItemTile({
             <p className="mt-1 text-xs text-muted-foreground">Sold out</p>
           )}
         </div>
-        {item.image && (
-          <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
-            <img
-              src={item.image}
-              alt={item.name}
-              className="h-full w-full object-cover"
-            />
-            {!disabled && (
-              <span className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
-                <Plus className="h-4 w-4" />
-              </span>
-            )}
-          </div>
-        )}
+        <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
+          <img
+            src={item.image ?? "/food-placeholder.png"}
+            alt={item.name}
+            className={`h-full w-full ${item.image ? "object-cover" : "object-contain p-3 opacity-40"}`}
+          />
+          {!disabled && (
+            <span className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
+              <Plus className="h-4 w-4" />
+            </span>
+          )}
+        </div>
       </button>
     );
   }
@@ -305,17 +303,11 @@ function ItemTile({
           variant === "card" ? "aspect-[16/10]" : "aspect-square"
         }`}
       >
-        {item.image ? (
-          <img
-            src={item.image}
-            alt={item.name}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform"
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-            No image
-          </div>
-        )}
+        <img
+          src={item.image ?? "/food-placeholder.png"}
+          alt={item.name}
+          className={`h-full w-full transition-transform group-hover:scale-105 ${item.image ? "object-cover" : "object-contain p-5 opacity-40"}`}
+        />
       </div>
       <div className={variant === "card" ? "p-5" : "p-3"}>
         <h3 className="font-semibold leading-snug">{item.name}</h3>

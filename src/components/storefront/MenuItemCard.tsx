@@ -79,20 +79,18 @@ export function MenuItemCard({
         </div>
       </div>
 
-      {item.image && (
-        <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
-          <img
-            src={item.image}
-            alt={item.name}
-            className="h-full w-full object-cover"
-          />
-          {item.available && (
-            <span className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110">
-              <Plus className="h-4 w-4" />
-            </span>
-          )}
-        </div>
-      )}
+      <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
+        <img
+          src={item.image ?? "/food-placeholder.png"}
+          alt={item.name}
+          className={`h-full w-full ${item.image ? "object-cover" : "object-contain p-3 opacity-40"}`}
+        />
+        {item.available && (
+          <span className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110">
+            <Plus className="h-4 w-4" />
+          </span>
+        )}
+      </div>
     </button>
   );
 }

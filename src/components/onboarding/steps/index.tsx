@@ -559,11 +559,11 @@ function MenuItemRow({
     <div className="p-3 sm:p-4">
       <div className="flex gap-3 items-start">
         <label className="relative h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-border bg-muted cursor-pointer">
-          {item.image ? (
-            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-          ) : (
-            <span className="h-full w-full flex items-center justify-center text-muted-foreground"><ImagePlus className="h-4 w-4" /></span>
-          )}
+          <img
+            src={item.image ?? "/food-placeholder.png"}
+            alt={item.name}
+            className={`h-full w-full ${item.image ? "object-cover" : "object-contain p-2 opacity-40"}`}
+          />
           <input type="file" accept="image/*" className="sr-only" onChange={onPick} />
         </label>
 
