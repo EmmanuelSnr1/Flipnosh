@@ -33,7 +33,7 @@ function PricingPage() {
         </p>
         <p className="mt-4 text-sm text-muted-foreground">
           A restaurant doing £10,000/month on Deliveroo pays <strong className="text-foreground">~£3,000 in commission</strong>.
-          FlipNosh costs <strong className="text-foreground">£79/month</strong>.
+          FlipNosh costs <strong className="text-foreground">£99/month</strong>.
         </p>
       </section>
 
@@ -114,7 +114,7 @@ function PricingPage() {
             {[
               { label: "Monthly GMV", value: "£5,000", sub: "typical independent" },
               { label: "Marketplace cost", value: "£1,500", sub: "at 30% commission" },
-              { label: "FlipNosh cost", value: "£79", sub: "Starter plan / month" },
+              { label: "FlipNosh cost", value: "£99", sub: "Starter plan / month" },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl bg-card border border-border p-6">
                 <p className="text-xs text-muted-foreground">{s.label}</p>

@@ -77,8 +77,8 @@ export const PLAN_DEFINITIONS: Record<Plan, PlanDefinition> = {
   starter: {
     id: "starter",
     name: "Starter",
-    monthlyPricePence: 7900,
-    monthlyPriceDisplay: "£79",
+    monthlyPricePence: 9900,
+    monthlyPriceDisplay: "£99",
     description: "Everything you need to start taking direct orders",
     recommended: false,
     billingDisabled: false,
@@ -99,8 +99,8 @@ export const PLAN_DEFINITIONS: Record<Plan, PlanDefinition> = {
   growth: {
     id: "growth",
     name: "Growth",
-    monthlyPricePence: 14900,
-    monthlyPriceDisplay: "£149",
+    monthlyPricePence: 17900,
+    monthlyPriceDisplay: "£179",
     description: "Scale your direct ordering with loyalty and automation",
     recommended: true,
     billingDisabled: false,
