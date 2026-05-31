@@ -1,18 +1,23 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import {
   getDashboardOrders,
   updateOrderStatus,
+  sendRestaurantMessage,
   ORDER_STATUS_FLOW,
+  ORDER_STATUS_BACK,
   ORDER_STATUS_LABEL,
   dashboardSearch,
   type DashboardOrder,
+  type OrderMessage,
 } from "@/api/dashboard";
 import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { gbp } from "@/lib/utils/format";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { MessageCircle, Send, ChevronLeft, RefreshCw } from "lucide-react";
 // Sounds are played globally by DashboardSidebar — no import needed here
 
 export const Route = createFileRoute("/dashboard/orders")({
@@ -28,28 +33,27 @@ const ACTIVE = ["pending", "accepted", "preparing", "ready"];
 // ── Page component ────────────────────────────────────────────────────────────
 
 function OrdersPage() {
-  const orders = (Route.useLoaderData() ?? []) as DashboardOrder[];
+  const loaded = (Route.useLoaderData() ?? []) as DashboardOrder[];
   const router = useRouter();
   const { r: restaurantId } = Route.useSearch();
+  const [orders, setOrders]   = useState<DashboardOrder[]>(loaded);
   const [filter, setFilter]   = useState<Filter>("active");
   const [updating, setUpdating] = useState<Set<string>>(new Set());
 
-  // ── Supabase Realtime: notify on new orders + payment updates ─────────────
+  // Keep local state in sync when loader refreshes (e.g. after router.invalidate)
+  useEffect(() => { setOrders(loaded); }, [loaded]);
+
+  // ── Supabase Realtime: orders + messages ─────────────────────────────────
   useEffect(() => {
     if (!restaurantId) return;
 
-    const channel = supabase
+    // Orders channel: new orders + payment status changes
+    const ordersChannel = supabase
       .channel(`orders:${restaurantId}`)
-      // New order inserted
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         "postgres_changes" as any,
-        {
-          event:  "INSERT",
-          schema: "public",
-          table:  "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
+        { event: "INSERT", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurantId}` },
         (payload: { new: Record<string, unknown> }) => {
           const num  = payload.new.order_number as string | undefined;
           const name = payload.new.order_name   as string | undefined;
@@ -60,27 +64,20 @@ function OrdersPage() {
           void router.invalidate();
         },
       )
-      // Payment status changed (e.g. webhook marks order paid)
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         "postgres_changes" as any,
-        {
-          event:  "UPDATE",
-          schema: "public",
-          table:  "orders",
-          filter: `restaurant_id=eq.${restaurantId}`,
-        },
+        { event: "UPDATE", schema: "public", table: "orders", filter: `restaurant_id=eq.${restaurantId}` },
         (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
-          const newPayment = payload.new.payment_status as string | undefined;
-          const oldPayment = payload.old.payment_status as string | undefined;
-          const num        = payload.new.order_number   as string | undefined;
-
-          if (newPayment === "paid" && oldPayment !== "paid") {
+          const newPay = payload.new.payment_status as string | undefined;
+          const oldPay = payload.old.payment_status as string | undefined;
+          const num    = payload.new.order_number   as string | undefined;
+          if (newPay === "paid" && oldPay !== "paid") {
             toast.success("Payment received!", {
               description: num ? `Order ${num} has been paid` : "An order has been paid",
               duration: 6000,
             });
-          } else if (newPayment === "failed" && oldPayment !== "failed") {
+          } else if (newPay === "failed" && oldPay !== "failed") {
             toast.error("Payment failed", {
               description: num ? `Order ${num} — payment could not be processed` : "A payment failed",
               duration: 8000,
@@ -91,8 +88,47 @@ function OrdersPage() {
       )
       .subscribe();
 
+    // Messages channel: customer sends a note — append in-place without full reload
+    const msgsChannel = supabase
+      .channel(`order-msgs:${restaurantId}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "INSERT", schema: "public", table: "order_messages", filter: `restaurant_id=eq.${restaurantId}` },
+        (payload: { new: { id: string; order_id: string; sender_type: string; message: string; created_at: string } }) => {
+          const m = payload.new;
+          if (m.sender_type === "customer") {
+            toast.info("Customer message", {
+              description: `"${m.message.slice(0, 60)}${m.message.length > 60 ? "…" : ""}"`,
+              duration: 6000,
+            });
+          }
+          // Append message to the matching order in local state
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === m.order_id
+                ? {
+                    ...o,
+                    messages: [
+                      ...o.messages,
+                      {
+                        id:          m.id,
+                        sender_type: m.sender_type as "customer" | "restaurant",
+                        message:     m.message,
+                        created_at:  m.created_at,
+                      },
+                    ],
+                  }
+                : o,
+            ),
+          );
+        },
+      )
+      .subscribe();
+
     return () => {
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(ordersChannel);
+      void supabase.removeChannel(msgsChannel);
     };
   }, [restaurantId, router]);
 
@@ -187,7 +223,17 @@ function OrdersPage() {
               <OrderCard
                 key={o.id}
                 order={o}
+                restaurantId={restaurantId!}
                 onUpdate={update}
+                onMessageSent={(orderId, msg) =>
+                  setOrders((prev) =>
+                    prev.map((x) =>
+                      x.id === orderId
+                        ? { ...x, messages: [...x.messages, msg] }
+                        : x,
+                    ),
+                  )
+                }
                 isUpdating={updating.has(o.id)}
               />
             ))}
@@ -220,15 +266,26 @@ function useIsNew(createdAt: string): boolean {
 
 function OrderCard({
   order,
+  restaurantId,
   onUpdate,
+  onMessageSent,
   isUpdating,
 }: {
-  order: DashboardOrder;
-  onUpdate: (o: DashboardOrder, s: string) => void;
-  isUpdating: boolean;
+  order:         DashboardOrder;
+  restaurantId:  string;
+  onUpdate:      (o: DashboardOrder, s: string) => void;
+  onMessageSent: (orderId: string, msg: OrderMessage) => void;
+  isUpdating:    boolean;
 }) {
-  const nextStatuses = ORDER_STATUS_FLOW[order.status] ?? [];
-  const isNew = useIsNew(order.created_at);
+  const nextStatuses  = ORDER_STATUS_FLOW[order.status] ?? [];
+  const backStatus    = ORDER_STATUS_BACK[order.status] ?? null;
+  const isNew         = useIsNew(order.created_at);
+  const [showMsgs, setShowMsgs] = useState(order.messages.length > 0);
+
+  // Show messages panel automatically when a new message arrives
+  useEffect(() => {
+    if (order.messages.length > 0) setShowMsgs(true);
+  }, [order.messages.length]);
 
   return (
     <div className={`rounded-2xl border bg-card p-4 sm:p-5 transition-colors ${
@@ -245,10 +302,8 @@ function OrderCard({
               </span>
             )}
             <OrderStatusBadge status={order.status as never} />
-            <PaymentStatusBadge status={order.payment_status} />
-            <span className="text-xs text-muted-foreground capitalize">
-              · {order.fulfilment_type}
-            </span>
+            <PaymentStatusBadge status={order.payment_status} refundAmountPence={order.refund_amount_pence} />
+            <span className="text-xs text-muted-foreground capitalize">· {order.fulfilment_type}</span>
             {order.source && (
               <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
                 via {order.source}
@@ -259,15 +314,31 @@ function OrderCard({
             {order.customer_name}
             {order.customer_phone && ` · ${order.customer_phone}`}
             {" · "}
-            {new Date(order.created_at).toLocaleTimeString([], {
-              hour:   "2-digit",
-              minute: "2-digit",
-            })}
+            {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
-        <span className="text-lg font-bold">
-          {gbp(order.total_pence / 100)}
-        </span>
+        <div className="flex items-center gap-2">
+          {/* Message thread toggle */}
+          <button
+            onClick={() => setShowMsgs((v) => !v)}
+            className={`relative inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
+              showMsgs
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+            title="Customer messages"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            {order.messages.length > 0 && (
+              <span className={`font-medium ${
+                order.messages.some((m) => m.sender_type === "customer")
+                  ? "text-primary"
+                  : ""
+              }`}>{order.messages.length}</span>
+            )}
+          </button>
+          <span className="text-lg font-bold">{gbp(order.total_pence / 100)}</span>
+        </div>
       </div>
 
       {/* ── Items ── */}
@@ -295,9 +366,37 @@ function OrderCard({
         </p>
       )}
 
+      {/* ── Message thread ── */}
+      {showMsgs && (
+        <OrderMessageThread
+          order={order}
+          restaurantId={restaurantId}
+          onMessageSent={onMessageSent}
+        />
+      )}
+
       {/* ── Status actions ── */}
-      {nextStatuses.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
+      {(nextStatuses.length > 0 || backStatus) && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {/* Back step */}
+          {backStatus && (
+            <button
+              disabled={isUpdating}
+              onClick={() => onUpdate(order, backStatus)}
+              title={`Revert to ${ORDER_STATUS_LABEL[backStatus]}`}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm text-muted-foreground border border-border hover:bg-muted transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {ORDER_STATUS_LABEL[backStatus]}
+            </button>
+          )}
+
+          {/* Divider if both back and forward exist */}
+          {backStatus && nextStatuses.length > 0 && (
+            <span className="text-muted-foreground/30 text-xs">|</span>
+          )}
+
+          {/* Forward / reject steps */}
           {nextStatuses.map((s) => {
             const isReject = s === "rejected";
             return (
@@ -311,11 +410,7 @@ function OrderCard({
                     : "bg-primary text-primary-foreground hover:opacity-90"
                 }`}
               >
-                {isUpdating
-                  ? "Updating…"
-                  : isReject
-                    ? "Reject"
-                    : `Mark ${ORDER_STATUS_LABEL[s]}`}
+                {isUpdating ? "Updating…" : isReject ? "Reject" : `Mark ${ORDER_STATUS_LABEL[s]}`}
               </button>
             );
           })}
@@ -325,14 +420,124 @@ function OrderCard({
   );
 }
 
+// ── Message thread (dashboard side) ──────────────────────────────────────────
+
+function OrderMessageThread({
+  order,
+  restaurantId,
+  onMessageSent,
+}: {
+  order:         DashboardOrder;
+  restaurantId:  string;
+  onMessageSent: (orderId: string, msg: OrderMessage) => void;
+}) {
+  const [text, setText]     = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [order.messages.length]);
+
+  const send = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    try {
+      await sendRestaurantMessage({
+        data: { orderId: order.id, restaurantId, message: trimmed },
+      });
+      onMessageSent(order.id, {
+        id:          `temp-${Date.now()}`,
+        sender_type: "restaurant",
+        message:     trimmed,
+        created_at:  new Date().toISOString(),
+      });
+      setText("");
+    } catch {
+      toast.error("Failed to send message");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-border overflow-hidden">
+      {/* Thread */}
+      <div className="px-3 py-2.5 space-y-2 max-h-48 overflow-y-auto bg-muted/20">
+        {order.messages.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-2">No messages yet.</p>
+        ) : (
+          order.messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${msg.sender_type === "restaurant" ? "items-end" : "items-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-xs ${
+                  msg.sender_type === "restaurant"
+                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    : "bg-background border border-border text-foreground rounded-bl-sm"
+                }`}
+              >
+                {msg.message}
+              </div>
+              <span className="mt-0.5 text-[10px] text-muted-foreground">
+                {msg.sender_type === "restaurant" ? "You" : "Customer"}
+                {" · "}
+                {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+              </span>
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Reply input */}
+      <div className="flex gap-2 px-2 py-2 bg-background border-t border-border">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
+          placeholder="Reply to customer…"
+          maxLength={500}
+          disabled={sending}
+          className="flex-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary disabled:opacity-60"
+        />
+        <button
+          onClick={() => void send()}
+          disabled={!text.trim() || sending}
+          className="rounded-lg bg-primary px-2.5 py-1.5 text-primary-foreground disabled:opacity-50"
+          aria-label="Send"
+        >
+          {sending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Payment status badge ──────────────────────────────────────────────────────
 
-function PaymentStatusBadge({ status }: { status: string }) {
+function PaymentStatusBadge({
+  status,
+  refundAmountPence,
+}: {
+  status:            string;
+  refundAmountPence: number | null;
+}) {
   switch (status) {
     case "paid":
       return (
         <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
           ✓ Paid
+        </span>
+      );
+    case "refunded":
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+          ↩ Refunded{refundAmountPence ? ` ${gbp(refundAmountPence / 100)}` : ""}
         </span>
       );
     case "pending":
@@ -355,7 +560,6 @@ function PaymentStatusBadge({ status }: { status: string }) {
       );
     case "unpaid":
     default:
-      // Cash-on-collection / unpaid orders — no badge needed
       return null;
   }
 }

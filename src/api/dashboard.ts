@@ -20,22 +20,33 @@ export const dashboardSearch = (s: Record<string, unknown>) => ({
 
 // ─── Order status helpers (replaces mock-store constants) ─────────────────────
 
+// Forward transitions (primary action buttons)
 export const ORDER_STATUS_FLOW: Record<string, string[]> = {
-  pending: ["accepted", "rejected"],
-  accepted: ["preparing"],
-  preparing: ["ready"],
-  ready: ["completed"],
+  pending:   ["accepted", "rejected"],
+  accepted:  ["preparing", "rejected"],
+  preparing: ["ready",    "rejected"],
+  ready:     ["completed"],
   completed: [],
-  rejected: [],
+  rejected:  [],
+};
+
+// Backward transitions (revert / fix-mistake button)
+export const ORDER_STATUS_BACK: Record<string, string | null> = {
+  pending:   null,       // already the first step
+  accepted:  "pending",
+  preparing: "accepted",
+  ready:     "preparing",
+  completed: null,       // terminal — cannot undo
+  rejected:  null,       // terminal — cannot undo
 };
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "Pending",
-  accepted: "Accepted",
+  pending:   "Pending",
+  accepted:  "Accepted",
   preparing: "Preparing",
-  ready: "Ready for pickup",
+  ready:     "Ready for pickup",
   completed: "Completed",
-  rejected: "Rejected",
+  rejected:  "Rejected",
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -124,6 +135,13 @@ export type DashboardOrderItem = {
   selected_modifiers: Array<{ groupName: string; optionName: string; pricePence: number }> | null;
 };
 
+export type OrderMessage = {
+  id:          string;
+  sender_type: "customer" | "restaurant";
+  message:     string;
+  created_at:  string;
+};
+
 export type DashboardOrder = {
   id: string;
   order_number: string;
@@ -140,6 +158,11 @@ export type DashboardOrder = {
   notes: string | null;
   source: string | null;
   created_at: string;
+  // Refund tracking
+  refunded_at: string | null;
+  refund_amount_pence: number | null;
+  // Messages thread
+  messages: OrderMessage[];
   items: DashboardOrderItem[];
 };
 
@@ -323,38 +346,59 @@ export const getDashboardOrders = createServerFn({ method: "GET" })
 
     const { data, error } = await db
       .from("orders")
-      .select(`*, order_items (id, name, quantity, unit_price_pence, total_pence, selected_modifiers)`)
+      .select(`
+        *,
+        order_items (id, name, quantity, unit_price_pence, total_pence, selected_modifiers),
+        order_messages (id, sender_type, message, created_at)
+      `)
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
       .limit(200);
 
     if (error) throw new Error(error.message);
 
-    return (data ?? []).map((o) => ({
-      id: o.id,
-      order_number: o.order_number,
-      order_name: (o as Record<string, unknown>).order_name as string | null ?? null,
-      customer_name: o.customer_name,
-      customer_phone: o.customer_phone,
-      customer_email: o.customer_email,
-      fulfilment_type: o.fulfilment_type,
-      status: o.status,
-      payment_status: o.payment_status,
-      subtotal_pence: o.subtotal_pence,
-      delivery_fee_pence: o.delivery_fee_pence,
-      total_pence: o.total_pence,
-      notes: o.notes,
-      source: (o as Record<string, unknown>).source as string | null ?? null,
-      created_at: o.created_at,
-      items: (o.order_items ?? []).map((i) => ({
-        id: i.id,
-        name: i.name,
-        quantity: i.quantity,
-        unit_price_pence: i.unit_price_pence,
-        total_pence: i.total_pence,
-        selected_modifiers: (i.selected_modifiers as Array<{ groupName: string; optionName: string; pricePence: number }> | null) ?? [],
-      })),
-    }));
+    return (data ?? []).map((o) => {
+      const raw = o as Record<string, unknown>;
+      const rawMessages = (raw.order_messages as Array<{
+        id: string; sender_type: string; message: string; created_at: string;
+      }> | null) ?? [];
+
+      return {
+        id: o.id,
+        order_number: o.order_number,
+        order_name: raw.order_name as string | null ?? null,
+        customer_name: o.customer_name,
+        customer_phone: o.customer_phone,
+        customer_email: o.customer_email,
+        fulfilment_type: o.fulfilment_type,
+        status: o.status,
+        payment_status: o.payment_status,
+        subtotal_pence: o.subtotal_pence,
+        delivery_fee_pence: o.delivery_fee_pence,
+        total_pence: o.total_pence,
+        notes: o.notes,
+        source: raw.source as string | null ?? null,
+        created_at: o.created_at,
+        refunded_at: o.refunded_at ?? null,
+        refund_amount_pence: o.refund_amount_pence ?? null,
+        messages: rawMessages
+          .sort((a, b) => a.created_at.localeCompare(b.created_at))
+          .map((m) => ({
+            id:          m.id,
+            sender_type: m.sender_type as "customer" | "restaurant",
+            message:     m.message,
+            created_at:  m.created_at,
+          })),
+        items: (o.order_items ?? []).map((i) => ({
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          unit_price_pence: i.unit_price_pence,
+          total_pence: i.total_pence,
+          selected_modifiers: (i.selected_modifiers as Array<{ groupName: string; optionName: string; pricePence: number }> | null) ?? [],
+        })),
+      };
+    });
   });
 
 // ─── getDashboardMenu ─────────────────────────────────────────────────────────
@@ -452,10 +496,10 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
     const { getAdminClient } = await import("@/lib/supabase/server");
     const db = getAdminClient();
 
-    // Load full order so we can emit a rich event
+    // Load full order (include Stripe fields for potential refund)
     const { data: order, error: fetchErr } = await db
       .from("orders")
-      .select("id, restaurant_id, order_number, order_name, customer_name, customer_phone, customer_email, fulfilment_type, total_pence, payment_status, source")
+      .select("id, restaurant_id, order_number, order_name, customer_name, customer_phone, customer_email, fulfilment_type, total_pence, payment_status, source, stripe_payment_intent_id")
       .eq("id", orderId)
       .single();
 
@@ -468,6 +512,32 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // ── Auto-refund: if rejecting a paid Stripe order, refund immediately ─────
+    if (status === "rejected" && order.payment_status === "paid") {
+      const piId = order.stripe_payment_intent_id;
+      if (piId) {
+        try {
+          const stripeKey = process.env.STRIPE_SECRET_KEY;
+          if (stripeKey) {
+            const Stripe = (await import("stripe")).default;
+            const stripe = new Stripe(stripeKey, { apiVersion: "2026-04-22.dahlia" });
+            const refund = await stripe.refunds.create({ payment_intent: piId });
+            await db.from("orders").update({
+              payment_status:      "refunded",
+              refunded_at:         new Date().toISOString(),
+              refund_amount_pence: refund.amount,
+              stripe_refund_id:    refund.id,
+            } as never).eq("id", orderId);
+          }
+        } catch (refundErr) {
+          // Non-fatal — rejection still goes through even if the Stripe call fails.
+          // The dashboard will show the order as rejected without a refund badge,
+          // and staff can manually issue the refund from the Stripe dashboard.
+          console.error("[refund] Stripe refund failed for order", orderId, refundErr);
+        }
+      }
+    }
 
     // Emit order_status event to n8n (fire-and-forget, non-fatal)
     // This triggers customer notifications (SMS / email) via n8n automations.
@@ -1023,4 +1093,31 @@ export const getUnreadNotificationCount = createServerFn({ method: "GET" })
       .eq("is_read", false);
     if (error) throw new Error(error.message);
     return count ?? 0;
+  });
+
+// ─── sendRestaurantMessage ────────────────────────────────────────────────────
+// Restaurant staff replies to a customer on the order thread.
+
+export const sendRestaurantMessage = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { orderId: string; restaurantId: string; message: string }) =>
+      z.object({
+        orderId:      z.string().uuid(),
+        restaurantId: z.string().uuid(),
+        message:      z.string().min(1).max(500).transform((s) => s.trim()),
+      }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+
+    const { error } = await db.from("order_messages").insert({
+      order_id:      data.orderId,
+      restaurant_id: data.restaurantId,
+      sender_type:   "restaurant",
+      message:       data.message,
+    });
+
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

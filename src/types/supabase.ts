@@ -478,6 +478,9 @@ export type Database = {
           stripe_payment_intent_id: string | null
           subtotal_pence: number
           total_pence: number
+          refund_amount_pence: number | null
+          refunded_at: string | null
+          stripe_refund_id: string | null
           tracking_token: string | null
           tracking_token_created_at: string | null
           updated_at: string
@@ -504,6 +507,9 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           subtotal_pence: number
           total_pence: number
+          refund_amount_pence?: number | null
+          refunded_at?: string | null
+          stripe_refund_id?: string | null
           tracking_token?: string | null
           tracking_token_created_at?: string | null
           updated_at?: string
@@ -530,6 +536,9 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           subtotal_pence?: number
           total_pence?: number
+          refund_amount_pence?: number | null
+          refunded_at?: string | null
+          stripe_refund_id?: string | null
           tracking_token?: string | null
           tracking_token_created_at?: string | null
           updated_at?: string
@@ -698,6 +707,48 @@ export type Database = {
             foreignKeyName: "restaurant_branding_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          order_id: string
+          restaurant_id: string
+          sender_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          order_id: string
+          restaurant_id: string
+          sender_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          order_id?: string
+          restaurant_id?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_messages_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
