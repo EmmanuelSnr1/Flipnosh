@@ -232,6 +232,11 @@ function TrackingPage() {
         token={token}
         orderId={order.orderId}
         messages={order.messages}
+        closed={
+          TERMINAL_STATUSES.has(order.status) ||
+          order.paymentStatus === "failed" ||
+          order.paymentStatus === "cancelled"
+        }
         onMessageSent={(newMsg) =>
           setData((prev) =>
             prev.found
@@ -263,11 +268,13 @@ function MessageThread({
   token,
   orderId,
   messages,
+  closed,
   onMessageSent,
 }: {
   token:         string;
   orderId:       string;
   messages:      TrackingMessage[];
+  closed:        boolean;
   onMessageSent: (msg: TrackingMessage) => void;
 }) {
   const [text, setText] = useState("");
@@ -311,14 +318,18 @@ function MessageThread({
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 bg-muted/40 border-b border-border">
         <MessageCircle className="h-4 w-4 text-muted-foreground" />
-        <p className="text-sm font-medium">Message the restaurant</p>
+        <p className="text-sm font-medium">
+          {closed ? "Order messages" : "Message the restaurant"}
+        </p>
       </div>
 
       {/* Thread */}
       <div className="px-4 py-3 space-y-3 max-h-60 overflow-y-auto">
         {messages.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-3">
-            Send a note — e.g. "no onions please" or "extra sauce on the side".
+            {closed
+              ? "No messages were sent for this order."
+              : "Send a note — e.g. \"no onions please\" or \"extra sauce on the side\"."}
           </p>
         ) : (
           messages.map((msg) => (
@@ -328,39 +339,47 @@ function MessageThread({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-3 pb-3 pt-1 border-t border-border bg-background">
-        <div className="flex gap-2">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
-            }}
-            placeholder="Type a message…"
-            rows={2}
-            maxLength={500}
-            disabled={sending}
-            className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-60"
-          />
-          <button
-            onClick={() => void send()}
-            disabled={!text.trim() || sending}
-            className="self-end rounded-xl bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50 transition-opacity"
-            aria-label="Send message"
-          >
-            {sending
-              ? <RefreshCw className="h-4 w-4 animate-spin" />
-              : <Send className="h-4 w-4" />
-            }
-          </button>
+      {/* Input — hidden when order is closed */}
+      {closed ? (
+        <div className="px-4 py-3 border-t border-border bg-muted/30">
+          <p className="text-xs text-muted-foreground text-center">
+            This order is closed — no new messages can be sent.
+          </p>
         </div>
-        {sent  && <p className="mt-1 text-xs text-emerald-600">Message sent ✓</p>}
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
-        <p className="mt-1 text-[10px] text-muted-foreground/60 text-right">
-          {text.length}/500
-        </p>
-      </div>
+      ) : (
+        <div className="px-3 pb-3 pt-1 border-t border-border bg-background">
+          <div className="flex gap-2">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
+              }}
+              placeholder="Type a message…"
+              rows={2}
+              maxLength={500}
+              disabled={sending}
+              className="flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-60"
+            />
+            <button
+              onClick={() => void send()}
+              disabled={!text.trim() || sending}
+              className="self-end rounded-xl bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50 transition-opacity"
+              aria-label="Send message"
+            >
+              {sending
+                ? <RefreshCw className="h-4 w-4 animate-spin" />
+                : <Send className="h-4 w-4" />
+              }
+            </button>
+          </div>
+          {sent  && <p className="mt-1 text-xs text-emerald-600">Message sent ✓</p>}
+          {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+          <p className="mt-1 text-[10px] text-muted-foreground/60 text-right">
+            {text.length}/500
+          </p>
+        </div>
+      )}
     </div>
   );
 }
