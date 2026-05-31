@@ -117,7 +117,7 @@ async function handleCheckoutSessionCompleted(
   // ── Idempotency check — skip if already marked paid ──────────────────────
   const { data: existing } = await db
     .from("orders")
-    .select("id, status, payment_status, order_number, total_pence, restaurant_id, fulfilment_type")
+    .select("id, status, payment_status, order_number, order_name, total_pence, restaurant_id, fulfilment_type, customer_name, customer_phone, customer_email, source")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -155,22 +155,25 @@ async function handleCheckoutSessionCompleted(
     `[payment-webhook] checkout.session.completed → order ${existing.order_number} marked paid`,
   );
 
-  // ── Insert order.paid event (best-effort) ─────────────────────────────────
+  // ── Emit order_paid event → staff notification + n8n dispatch ─────────────
   try {
-    await db.from("events").insert({
-      restaurant_id: existing.restaurant_id,
-      type:          "order.paid",
-      payload:       {
-        order_id:      orderId,
-        order_number:  existing.order_number,
-        total_pence:   existing.total_pence,
-        fulfilment_type: existing.fulfilment_type,
-        payment_intent_id: paymentIntentId,
-        source:        "stripe_webhook",
-      } as never,
+    const { emitOrderEvent } = await import("@/server/events/order-events");
+    await emitOrderEvent("order_paid", {
+      restaurantId:   existing.restaurant_id,
+      orderId,
+      orderNumber:    existing.order_number,
+      orderName:      (existing as Record<string, unknown>).order_name as string | null ?? null,
+      customerName:   (existing as Record<string, unknown>).customer_name as string ?? "",
+      customerPhone:  (existing as Record<string, unknown>).customer_phone as string | null ?? null,
+      customerEmail:  (existing as Record<string, unknown>).customer_email as string | null ?? null,
+      fulfilmentType: existing.fulfilment_type,
+      totalPence:     existing.total_pence,
+      status:         "accepted",
+      paymentStatus:  "paid",
+      source:         (existing as Record<string, unknown>).source as string | null ?? null,
     });
   } catch {
-    // Non-fatal — event logging must not block payment confirmation
+    // Non-fatal — event dispatch must not block payment confirmation
   }
 }
 
@@ -242,7 +245,37 @@ async function handlePaymentIntentFailed(
 
   if (error) {
     console.error("[payment-webhook] Failed to mark order failed:", error.message);
-  } else {
-    console.log(`[payment-webhook] payment_intent.payment_failed → order ${order.id} failed`);
+    return;
+  }
+
+  console.log(`[payment-webhook] payment_intent.payment_failed → order ${order.id} failed`);
+
+  // ── Emit payment_failed event → staff notification + n8n dispatch ──────────
+  try {
+    const { data: orderDetails } = await db
+      .from("orders")
+      .select("order_number, order_name, customer_name, customer_phone, customer_email, fulfilment_type, total_pence, restaurant_id, source")
+      .eq("id", order.id)
+      .maybeSingle();
+
+    if (orderDetails) {
+      const { emitOrderEvent } = await import("@/server/events/order-events");
+      await emitOrderEvent("payment_failed", {
+        restaurantId:   orderDetails.restaurant_id,
+        orderId:        order.id,
+        orderNumber:    orderDetails.order_number,
+        orderName:      (orderDetails as Record<string, unknown>).order_name as string | null ?? null,
+        customerName:   orderDetails.customer_name,
+        customerPhone:  orderDetails.customer_phone,
+        customerEmail:  orderDetails.customer_email,
+        fulfilmentType: orderDetails.fulfilment_type,
+        totalPence:     orderDetails.total_pence,
+        status:         "pending",
+        paymentStatus:  "failed",
+        source:         (orderDetails as Record<string, unknown>).source as string | null ?? null,
+      });
+    }
+  } catch {
+    // Non-fatal
   }
 }

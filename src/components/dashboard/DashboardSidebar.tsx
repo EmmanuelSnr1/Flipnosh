@@ -10,11 +10,13 @@ import {
   Settings,
   Palette,
   Zap,
+  Bell,
   Menu,
   X,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { getRemainingTrialDays } from "@/lib/billing/plans";
+import { supabase } from "@/lib/supabase/client";
 
 type NavItem = {
   to: string;
@@ -26,6 +28,7 @@ type NavItem = {
 const nav: NavItem[] = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { to: "/dashboard/orders", label: "Orders", icon: Receipt },
+  { to: "/dashboard/notifications", label: "Notifications", icon: Bell },
   { to: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
   { to: "/dashboard/storefront", label: "Storefront", icon: Palette },
   { to: "/dashboard/customers", label: "Customers", icon: Users },
@@ -138,11 +141,13 @@ function PlanBadge({
 function NavList({
   pathname,
   restaurantId,
+  unreadCount,
   onNavigate,
 }: {
-  pathname: string;
+  pathname:     string;
   restaurantId: string;
-  onNavigate?: () => void;
+  unreadCount:  number;
+  onNavigate?:  () => void;
 }) {
   return (
     <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
@@ -150,6 +155,7 @@ function NavList({
         const active = n.exact
           ? pathname === n.to
           : pathname.startsWith(n.to);
+        const isNotifications = n.to === "/dashboard/notifications";
         return (
           <Link
             key={n.to}
@@ -163,7 +169,12 @@ function NavList({
             }`}
           >
             <n.icon className="h-4 w-4 shrink-0" />
-            {n.label}
+            <span className="flex-1">{n.label}</span>
+            {isNotifications && unreadCount > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground leading-none">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -215,8 +226,55 @@ export function DashboardSidebar({
   restaurantId: string;
   subscription: SubscriptionInfo;
 }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname    = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // ── Live unread notification count ───────────────────────────────────────
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    // Initial count query
+    supabase
+      .from("restaurant_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId)
+      .eq("is_read", false)
+      .then(({ count }) => setUnreadCount(count ?? 0));
+
+    // Realtime: increment on INSERT, decrement on UPDATE (mark read)
+    const channel = supabase
+      .channel(`notif-badge:${restaurantId}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        {
+          event:  "INSERT",
+          schema: "public",
+          table:  "restaurant_notifications",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        () => setUnreadCount((c) => c + 1),
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        {
+          event:  "UPDATE",
+          schema: "public",
+          table:  "restaurant_notifications",
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload: { new: { is_read: boolean }; old: { is_read: boolean } }) => {
+          if (payload.new.is_read && !payload.old.is_read) {
+            setUnreadCount((c) => Math.max(0, c - 1));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [restaurantId]);
 
   // Close the mobile drawer whenever the route changes
   useEffect(() => {
@@ -240,7 +298,7 @@ export function DashboardSidebar({
       {/* ── Desktop sidebar (md+) ────────────────────────────────────────── */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar sticky top-0 h-screen overflow-y-auto">
         <SidebarHeader restaurantName={restaurantName} />
-        <NavList pathname={pathname} restaurantId={restaurantId} />
+        <NavList pathname={pathname} restaurantId={restaurantId} unreadCount={unreadCount} />
         <div className="p-3 border-t border-border shrink-0">
           <PlanBadge subscription={subscription} restaurantId={restaurantId} />
         </div>
@@ -287,6 +345,7 @@ export function DashboardSidebar({
         <NavList
           pathname={pathname}
           restaurantId={restaurantId}
+          unreadCount={unreadCount}
           onNavigate={() => setDrawerOpen(false)}
         />
         <div className="p-3 border-t border-border shrink-0">

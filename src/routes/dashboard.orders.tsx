@@ -13,6 +13,7 @@ import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { gbp } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import { playNewOrderSound, playPaymentFailedSound } from "@/lib/notifications/sound";
 
 export const Route = createFileRoute("/dashboard/orders")({
   validateSearch: dashboardSearch,
@@ -23,27 +24,6 @@ export const Route = createFileRoute("/dashboard/orders")({
 
 type Filter = "active" | "completed" | "rejected" | "all";
 const ACTIVE = ["pending", "accepted", "preparing", "ready"];
-
-// ── Notification beep (Web Audio API — no audio files needed) ─────────────────
-function beepNewOrder() {
-  try {
-    const ctx = new AudioContext();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "sine";
-    // Two-tone ascending beep: 880 Hz → 1100 Hz
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.7);
-  } catch {
-    // Web Audio not available — silent fail
-  }
-}
 
 // ── Page component ────────────────────────────────────────────────────────────
 
@@ -71,10 +51,11 @@ function OrdersPage() {
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload: { new: Record<string, unknown> }) => {
-          const num = payload.new.order_number as string | undefined;
-          beepNewOrder();
+          const num  = payload.new.order_number as string | undefined;
+          const name = payload.new.order_name   as string | undefined;
+          playNewOrderSound();
           toast.success("New order!", {
-            description: num ? `Order ${num} just came in` : "A new order just came in",
+            description: name ?? (num ? `Order ${num} just came in` : "A new order just came in"),
             duration: 8000,
           });
           void router.invalidate();
@@ -93,13 +74,19 @@ function OrdersPage() {
         (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
           const newPayment = payload.new.payment_status as string | undefined;
           const oldPayment = payload.old.payment_status as string | undefined;
-          const num = payload.new.order_number as string | undefined;
+          const num        = payload.new.order_number   as string | undefined;
 
-          // Only toast when payment_status changed to 'paid'
           if (newPayment === "paid" && oldPayment !== "paid") {
+            playNewOrderSound();
             toast.success("Payment received!", {
               description: num ? `Order ${num} has been paid` : "An order has been paid",
               duration: 6000,
+            });
+          } else if (newPayment === "failed" && oldPayment !== "failed") {
+            playPaymentFailedSound();
+            toast.error("Payment failed", {
+              description: num ? `Order ${num} — payment could not be processed` : "A payment failed",
+              duration: 8000,
             });
           }
           void router.invalidate();
@@ -214,6 +201,24 @@ function OrdersPage() {
   );
 }
 
+// ── "NEW" badge — shown for 60 seconds after the order arrives ────────────────
+
+function useIsNew(createdAt: string): boolean {
+  const [isNew, setIsNew] = useState(() => {
+    return Date.now() - new Date(createdAt).getTime() < 60_000;
+  });
+
+  useEffect(() => {
+    if (!isNew) return;
+    const remaining = 60_000 - (Date.now() - new Date(createdAt).getTime());
+    if (remaining <= 0) { setIsNew(false); return; }
+    const t = setTimeout(() => setIsNew(false), remaining);
+    return () => clearTimeout(t);
+  }, [createdAt, isNew]);
+
+  return isNew;
+}
+
 // ── Order card ────────────────────────────────────────────────────────────────
 
 function OrderCard({
@@ -226,14 +231,22 @@ function OrderCard({
   isUpdating: boolean;
 }) {
   const nextStatuses = ORDER_STATUS_FLOW[order.status] ?? [];
+  const isNew = useIsNew(order.created_at);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <div className={`rounded-2xl border bg-card p-4 sm:p-5 transition-colors ${
+      isNew ? "border-primary/40 shadow-sm shadow-primary/10" : "border-border"
+    }`}>
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold">{order.order_number}</h3>
+            {isNew && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground uppercase tracking-wide animate-pulse">
+                New
+              </span>
+            )}
             <OrderStatusBadge status={order.status as never} />
             <PaymentStatusBadge status={order.payment_status} />
             <span className="text-xs text-muted-foreground capitalize">

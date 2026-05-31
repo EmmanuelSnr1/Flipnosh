@@ -127,6 +127,7 @@ export type DashboardOrderItem = {
 export type DashboardOrder = {
   id: string;
   order_number: string;
+  order_name: string | null;
   customer_name: string;
   customer_phone: string | null;
   customer_email: string | null;
@@ -140,6 +141,17 @@ export type DashboardOrder = {
   source: string | null;
   created_at: string;
   items: DashboardOrderItem[];
+};
+
+export type DashboardNotification = {
+  id: string;
+  restaurant_id: string;
+  type: string;
+  title: string;
+  body: string;
+  order_id: string | null;
+  is_read: boolean;
+  created_at: string;
 };
 
 export type DashboardModifier = {
@@ -321,6 +333,7 @@ export const getDashboardOrders = createServerFn({ method: "GET" })
     return (data ?? []).map((o) => ({
       id: o.id,
       order_number: o.order_number,
+      order_name: (o as Record<string, unknown>).order_name as string | null ?? null,
       customer_name: o.customer_name,
       customer_phone: o.customer_phone,
       customer_email: o.customer_email,
@@ -438,6 +451,16 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   .handler(async ({ data: { orderId, status } }) => {
     const { getAdminClient } = await import("@/lib/supabase/server");
     const db = getAdminClient();
+
+    // Load full order so we can emit a rich event
+    const { data: order, error: fetchErr } = await db
+      .from("orders")
+      .select("id, restaurant_id, order_number, order_name, customer_name, customer_phone, customer_email, fulfilment_type, total_pence, payment_status, source")
+      .eq("id", orderId)
+      .single();
+
+    if (fetchErr) throw new Error(fetchErr.message);
+
     const { data, error } = await db
       .from("orders")
       .update({ status })
@@ -445,6 +468,29 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // Emit order_status event to n8n (fire-and-forget, non-fatal)
+    // This triggers customer notifications (SMS / email) via n8n automations.
+    try {
+      const { emitOrderEvent } = await import("@/server/events/order-events");
+      await emitOrderEvent("order_status", {
+        restaurantId:   order.restaurant_id,
+        orderId:        order.id,
+        orderNumber:    order.order_number,
+        orderName:      (order as Record<string, unknown>).order_name as string | null ?? null,
+        customerName:   order.customer_name,
+        customerPhone:  order.customer_phone,
+        customerEmail:  order.customer_email,
+        fulfilmentType: order.fulfilment_type,
+        totalPence:     order.total_pence,
+        status,
+        paymentStatus:  order.payment_status,
+        source:         (order as Record<string, unknown>).source as string | null ?? null,
+      });
+    } catch {
+      // Non-fatal — event dispatch must not block status update
+    }
+
     return data;
   });
 
@@ -916,4 +962,65 @@ export const deleteDashboardMenuCategory = createServerFn({ method: "POST" })
 
     const { error } = await db.from("menu_categories").delete().eq("id", id);
     if (error) throw new Error(error.message);
+  });
+
+// ─── Notification functions ───────────────────────────────────────────────────
+
+export const getDashboardNotifications = createServerFn({ method: "GET" })
+  .inputValidator((id: string) => z.string().uuid().parse(id))
+  .handler(async ({ data: restaurantId }): Promise<DashboardNotification[]> => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+
+    const { data, error } = await db
+      .from("restaurant_notifications")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) throw new Error(error.message);
+
+    return (data ?? []) as DashboardNotification[];
+  });
+
+export const markNotificationRead = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) =>
+    z.object({ id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data: { id } }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { error } = await db
+      .from("restaurant_notifications")
+      .update({ is_read: true })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  });
+
+export const markAllNotificationsRead = createServerFn({ method: "POST" })
+  .inputValidator((id: string) => z.string().uuid().parse(id))
+  .handler(async ({ data: restaurantId }) => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { error } = await db
+      .from("restaurant_notifications")
+      .update({ is_read: true })
+      .eq("restaurant_id", restaurantId)
+      .eq("is_read", false);
+    if (error) throw new Error(error.message);
+  });
+
+export const getUnreadNotificationCount = createServerFn({ method: "GET" })
+  .inputValidator((id: string) => z.string().uuid().parse(id))
+  .handler(async ({ data: restaurantId }): Promise<number> => {
+    const { getAdminClient } = await import("@/lib/supabase/server");
+    const db = getAdminClient();
+    const { count, error } = await db
+      .from("restaurant_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId)
+      .eq("is_read", false);
+    if (error) throw new Error(error.message);
+    return count ?? 0;
   });

@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -465,6 +463,7 @@ export type Database = {
           fulfilment_type: string
           id: string
           notes: string | null
+          order_name: string | null
           order_number: string
           paid_at: string | null
           payment_failure_reason: string | null
@@ -488,6 +487,7 @@ export type Database = {
           fulfilment_type: string
           id?: string
           notes?: string | null
+          order_name?: string | null
           order_number: string
           paid_at?: string | null
           payment_failure_reason?: string | null
@@ -511,6 +511,7 @@ export type Database = {
           fulfilment_type?: string
           id?: string
           notes?: string | null
+          order_name?: string | null
           order_number?: string
           paid_at?: string | null
           payment_failure_reason?: string | null
@@ -689,6 +690,54 @@ export type Database = {
             foreignKeyName: "restaurant_branding_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_read: boolean
+          order_id: string | null
+          restaurant_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          order_id?: string | null
+          restaurant_id: string
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          order_id?: string | null
+          restaurant_id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_notifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_notifications_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1020,16 +1069,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
-// ─── Convenience row-type aliases ─────────────────────────────────────────────
-export type DbRestaurant = Database["public"]["Tables"]["restaurants"]["Row"]
-export type DbRestaurantBranding = Database["public"]["Tables"]["restaurant_branding"]["Row"]
-export type DbThemeConfig = Database["public"]["Tables"]["restaurant_theme_configs"]["Row"]
-export type DbFulfilmentSettings = Database["public"]["Tables"]["fulfilment_settings"]["Row"]
-export type DbPlatformSubscription = Database["public"]["Tables"]["platform_subscriptions"]["Row"]
-export type DbOrder = Database["public"]["Tables"]["orders"]["Row"]
-export type DbOrderItem = Database["public"]["Tables"]["order_items"]["Row"]
-export type DbMenuCategory = Database["public"]["Tables"]["menu_categories"]["Row"]
-export type DbMenuItem = Database["public"]["Tables"]["menu_items"]["Row"]
-export type DbCustomer = Database["public"]["Tables"]["customers"]["Row"]
-export type DbQrCampaign = Database["public"]["Tables"]["qr_campaigns"]["Row"]

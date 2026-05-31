@@ -6,11 +6,11 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { DbPlatformSubscription } from "@/types/supabase";
+import type { Tables } from "@/types/supabase";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
-export type SubscriptionInfo = DbPlatformSubscription;
+export type SubscriptionInfo = Tables<"platform_subscriptions">;
 
 // ─── getRestaurantSubscription ────────────────────────────────────────────────
 

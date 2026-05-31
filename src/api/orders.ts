@@ -63,11 +63,15 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
     const orderNumber = `#${1000 + (count ?? 0) + 1}`;
 
     // ── 2. Insert order ───────────────────────────────────────────────────────
+    const firstName = data.customerName.trim().split(/\s+/)[0] ?? data.customerName.trim();
+    const orderName = `${orderNumber} ${firstName}`;
+
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .insert({
         restaurant_id:     data.restaurantId,
         order_number:      orderNumber,
+        order_name:        orderName,
         customer_name:     data.customerName,
         customer_phone:    data.customerPhone?.trim() || null,
         customer_email:    data.customerEmail?.trim().toLowerCase() || null,
@@ -155,18 +159,22 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
       // Non-fatal — customer record failure must not block order creation
     }
 
-    // ── 5. Track order_placed event (best-effort, non-fatal) ─────────────────
+    // ── 5. Emit new_order event (notification + n8n dispatch, best-effort) ───
     try {
-      await admin.from("events").insert({
-        restaurant_id: data.restaurantId,
-        type:          "order_placed",
-        payload:       {
-          order_id:        order.id,
-          order_number:    orderNumber,
-          total_pence:     data.totalPence,
-          fulfilment_type: data.fulfilmentType,
-          source:          data.source ?? null,
-        } as never,
+      const { emitOrderEvent } = await import("@/server/events/order-events");
+      await emitOrderEvent("new_order", {
+        restaurantId:   data.restaurantId,
+        orderId:        order.id,
+        orderNumber,
+        orderName,
+        customerName:   data.customerName,
+        customerPhone:  data.customerPhone?.trim() || null,
+        customerEmail:  data.customerEmail?.trim().toLowerCase() || null,
+        fulfilmentType: data.fulfilmentType,
+        totalPence:     data.totalPence,
+        status:         "pending",
+        paymentStatus:  "unpaid",
+        source:         data.source ?? null,
       });
     } catch {
       // Non-fatal

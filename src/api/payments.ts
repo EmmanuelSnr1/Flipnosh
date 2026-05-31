@@ -250,12 +250,14 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
 
     const totalPence = subtotalPence + deliveryFeePence;
 
-    // ── 5. Generate order number ──────────────────────────────────────────────
+    // ── 5. Generate order number & name ──────────────────────────────────────
     const { count } = await db
       .from("orders")
       .select("id", { count: "exact", head: true })
       .eq("restaurant_id", data.restaurantId);
     const orderNumber = `#${1000 + (count ?? 0) + 1}`;
+    const firstName   = data.customerName.trim().split(/\s+/)[0] ?? data.customerName.trim();
+    const orderName   = `${orderNumber} ${firstName}`;
 
     // ── 6. Build combined notes (order notes + delivery address) ──────────────
     const fullNotes = [
@@ -273,6 +275,7 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
       .insert({
         restaurant_id:      data.restaurantId,
         order_number:       orderNumber,
+        order_name:         orderName,
         customer_name:      data.customerName.trim(),
         customer_phone:     data.customerPhone?.trim() || null,
         customer_email:     data.customerEmail?.trim().toLowerCase() || null,
@@ -426,19 +429,25 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
       .update({ stripe_checkout_session_id: session.id })
       .eq("id", order.id);
 
-    // ── 13. Track event order.created (best-effort) ───────────────────────────
+    // ── 13. Dispatch order.created event to n8n (best-effort) ─────────────────
+    // Note: we do NOT emit new_order notification here — the order isn't paid
+    // yet. The Stripe webhook (checkout.session.completed) emits the staff
+    // notification once payment is confirmed.
     try {
-      await db.from("events").insert({
-        restaurant_id: data.restaurantId,
-        type:          "order.created",
-        payload:       {
-          order_id:        order.id,
-          order_number:    orderNumber,
-          total_pence:     totalPence,
-          fulfilment_type: data.fulfilmentType,
-          source:          data.source ?? null,
-          payment_method:  "stripe_checkout",
-        } as never,
+      const { emitOrderEvent } = await import("@/server/events/order-events");
+      await emitOrderEvent("order_status", {
+        restaurantId:   data.restaurantId,
+        orderId:        order.id,
+        orderNumber,
+        orderName,
+        customerName:   data.customerName.trim(),
+        customerPhone:  data.customerPhone?.trim() || null,
+        customerEmail:  data.customerEmail?.trim().toLowerCase() || null,
+        fulfilmentType: data.fulfilmentType,
+        totalPence,
+        status:         "pending",
+        paymentStatus:  "pending",
+        source:         data.source ?? null,
       });
     } catch {
       // Non-fatal
