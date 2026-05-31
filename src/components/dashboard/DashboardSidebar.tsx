@@ -17,6 +17,7 @@ import {
 import { Logo } from "@/components/shared/Logo";
 import { getRemainingTrialDays } from "@/lib/billing/plans";
 import { supabase } from "@/lib/supabase/client";
+import { playNewOrderSound, playPaymentFailedSound } from "@/lib/notifications/sound";
 
 type NavItem = {
   to: string;
@@ -242,7 +243,7 @@ export function DashboardSidebar({
       .eq("is_read", false)
       .then(({ count }) => setUnreadCount(count ?? 0));
 
-    // Realtime: increment on INSERT, decrement on UPDATE (mark read)
+    // Realtime: increment on INSERT + play sound, decrement on UPDATE (mark read)
     const channel = supabase
       .channel(`notif-badge:${restaurantId}`)
       .on(
@@ -254,7 +255,15 @@ export function DashboardSidebar({
           table:  "restaurant_notifications",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => setUnreadCount((c) => c + 1),
+        (payload: { new: { type: string } }) => {
+          setUnreadCount((c) => c + 1);
+          // Play sound globally — this sidebar is mounted on every dashboard page
+          if (payload.new.type === "payment_failed") {
+            playPaymentFailedSound();
+          } else {
+            playNewOrderSound();
+          }
+        },
       )
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

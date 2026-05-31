@@ -13,7 +13,7 @@ import { OrderStatusBadge } from "@/components/shared/OrderStatusBadge";
 import { gbp } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
-import { playNewOrderSound, playPaymentFailedSound } from "@/lib/notifications/sound";
+// Sounds are played globally by DashboardSidebar — no import needed here
 
 export const Route = createFileRoute("/dashboard/orders")({
   validateSearch: dashboardSearch,
@@ -53,7 +53,6 @@ function OrdersPage() {
         (payload: { new: Record<string, unknown> }) => {
           const num  = payload.new.order_number as string | undefined;
           const name = payload.new.order_name   as string | undefined;
-          playNewOrderSound();
           toast.success("New order!", {
             description: name ?? (num ? `Order ${num} just came in` : "A new order just came in"),
             duration: 8000,
@@ -77,13 +76,11 @@ function OrdersPage() {
           const num        = payload.new.order_number   as string | undefined;
 
           if (newPayment === "paid" && oldPayment !== "paid") {
-            playNewOrderSound();
             toast.success("Payment received!", {
               description: num ? `Order ${num} has been paid` : "An order has been paid",
               duration: 6000,
             });
           } else if (newPayment === "failed" && oldPayment !== "failed") {
-            playPaymentFailedSound();
             toast.error("Payment failed", {
               description: num ? `Order ${num} — payment could not be processed` : "A payment failed",
               duration: 8000,

@@ -383,6 +383,3 @@ function Shell({
   );
 }
 
-// ─── Re-export so the useLoaderData cast is typed correctly ───────────────────
-// (TanStack Start infers loader return types automatically)
-export { TrackingPage as default };

@@ -59,8 +59,14 @@ export async function dispatchOrderEventToN8n(
     "Content-Type": "application/json",
   };
 
-  // Sign payload with HMAC-SHA256 if a secret is configured
   if (webhookSecret) {
+    // ── Static secret header — used by n8n "Header Auth" credential ──────────
+    // n8n Webhook node → Authentication → "Header Auth"
+    //   Name:  X-FlipNosh-Secret
+    //   Value: <your N8N_WEBHOOK_SECRET value>
+    headers["X-FlipNosh-Secret"] = webhookSecret;
+
+    // ── HMAC-SHA256 signature — for manual verification in a Code node ────────
     try {
       const { createHmac } = await import("node:crypto");
       const sig = createHmac("sha256", webhookSecret)

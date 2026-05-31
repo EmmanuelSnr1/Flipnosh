@@ -12,7 +12,7 @@ import {
 } from "@/api/dashboard";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { supabase } from "@/lib/supabase/client";
-import { playNewOrderSound, testNotificationSound } from "@/lib/notifications/sound";
+import { testNotificationSound } from "@/lib/notifications/sound";
 
 export const Route = createFileRoute("/dashboard/notifications")({
   validateSearch: dashboardSearch,
@@ -130,7 +130,7 @@ function NotificationsPage() {
         },
         (payload: { new: DashboardNotification }) => {
           setNotifs((prev) => [payload.new, ...prev]);
-          playNewOrderSound();
+          // Sound is played globally by DashboardSidebar
         },
       )
       .subscribe();
