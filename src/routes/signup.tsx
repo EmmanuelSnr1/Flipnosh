@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { signUpAndCreateRestaurant } from "@/api/auth";
+import { store } from "@/stores/mock-store";
 import { toast } from "sonner";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 
@@ -10,7 +11,6 @@ export const Route = createFileRoute("/signup")({ component: SignupPage });
 function SignupPage() {
   const navigate = useNavigate();
   const [restaurantName, setRestaurantName] = useState("");
-  const [yourName, setYourName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,14 +39,23 @@ function SignupPage() {
       const slug = baseSlug || "restaurant";
 
       // 3. Create restaurant + seed config rows via admin client (server fn)
+      //    The server fn retries on slug collisions so we get a unique slug back.
       const restaurant = await signUpAndCreateRestaurant({
         data: { userId, restaurantName: restaurantName.trim(), slug },
       });
 
+      // 4. Seed the mock-store with the real restaurant name so Step 2
+      //    pre-fills the user's own name instead of "Natural Fingers".
+      store.updateRestaurant("naturalfingers", { name: restaurantName.trim() });
+
       toast.success("Account created — let's set up your storefront!");
       navigate({
         to: "/onboarding",
-        search: { step: 2, restaurantId: restaurant.id },
+        search: {
+          step: 2,
+          restaurantId: restaurant.id,
+          slug: restaurant.slug,
+        },
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
@@ -73,14 +82,8 @@ function SignupPage() {
               label="Restaurant name"
               value={restaurantName}
               onChange={setRestaurantName}
-              placeholder="Natural Fingers"
+              placeholder="e.g. The Burger Joint"
               required
-            />
-            <AuthField
-              label="Your name"
-              value={yourName}
-              onChange={setYourName}
-              placeholder="Alex"
             />
             <AuthField
               label="Email"

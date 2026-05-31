@@ -918,10 +918,18 @@ function SummaryCard({ icon, title, body }: { icon: React.ReactNode; title: stri
 
 /* ---------------- Step 8: Completed ---------------- */
 
-export function CompletedStep({ onGoToDashboard }: { onGoToDashboard: () => void }) {
+export function CompletedStep({
+  restaurantSlug,
+  onGoToDashboard,
+}: {
+  restaurantSlug?: string;
+  onGoToDashboard: () => void;
+}) {
   const { restaurants, stripeStatus } = useStore();
   const r = restaurants.find((x) => x.slug === SLUG)!;
-  const url = `flipnosh.com/r/${r.slug}`;
+  // Use the real DB slug when available; fall back to mock slug for demo mode
+  const slug = restaurantSlug ?? r.slug;
+  const url = `flipnosh.com/r/${slug}`;
   const itemCount = r.menu.reduce((s, c) => s + c.items.length, 0);
 
   const copy = () => {
@@ -944,7 +952,7 @@ export function CompletedStep({ onGoToDashboard }: { onGoToDashboard: () => void
           <button onClick={copy} className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">
             <Copy className="h-3.5 w-3.5" /> Copy
           </button>
-          <a href={`/r/${r.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-4 py-2 text-xs font-medium hover:bg-muted">
+          <a href={`/r/${slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-4 py-2 text-xs font-medium hover:bg-muted">
             <ExternalLink className="h-3.5 w-3.5" /> Visit
           </a>
         </div>

@@ -15,6 +15,9 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { Database } from "@/types/supabase";
+
+type RestaurantRow = Database["public"]["Tables"]["restaurants"]["Row"];
 
 // ─── getCurrentUser ───────────────────────────────────────────────────────────
 
@@ -69,20 +72,40 @@ export const signUpAndCreateRestaurant = createServerFn({ method: "POST" })
     const { getAdminClient } = await import("@/lib/supabase/server");
     const admin = getAdminClient();
 
-    // Create restaurant
-    const { data: restaurant, error: rErr } = await admin
-      .from("restaurants")
-      .insert({
-        name: data.restaurantName,
-        slug: data.slug,
-        subdomain: data.slug,
-        status: "draft",
-        onboarding_step: "restaurant-info",
-      })
-      .select()
-      .single();
+    // Create restaurant — retry up to 4 times on slug collisions (23505).
+    // On each retry we append a random 4-digit suffix so "burgerbar" becomes
+    // "burgerbar-4271", keeping the slug both readable and unique.
+    let restaurant: RestaurantRow | null = null;
+    let lastErrMsg = "Could not create restaurant — slug already taken";
 
-    if (rErr) throw new Error(rErr.message);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const suffix = attempt === 0
+        ? ""
+        : `-${Math.floor(1000 + Math.random() * 9000)}`;
+      const attemptSlug = `${data.slug.slice(0, 24)}${suffix}`;
+
+      const { data: row, error: rErr } = await admin
+        .from("restaurants")
+        .insert({
+          name: data.restaurantName,
+          slug: attemptSlug,
+          subdomain: attemptSlug,
+          status: "draft",
+          onboarding_step: "restaurant-info",
+        })
+        .select()
+        .single();
+
+      if (!rErr) {
+        restaurant = row;
+        break;
+      }
+      // Only retry on unique-constraint violations; surface other errors immediately
+      if (rErr.code !== "23505") throw new Error(rErr.message);
+      lastErrMsg = rErr.message;
+    }
+
+    if (!restaurant) throw new Error(lastErrMsg);
 
     // Link user as owner
     const { error: uErr } = await admin.from("restaurant_users").insert({

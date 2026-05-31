@@ -40,7 +40,7 @@ function LoginPage() {
         navigate({ to: "/dashboard", search: { r: ru.restaurant_id } });
       } else {
         // Signed in but no restaurant yet — send to onboarding
-        navigate({ to: "/onboarding", search: { step: 1, restaurantId: undefined } });
+        navigate({ to: "/onboarding", search: { step: 1, restaurantId: undefined, slug: undefined } });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign in failed");

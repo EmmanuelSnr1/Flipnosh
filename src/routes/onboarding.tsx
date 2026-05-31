@@ -30,6 +30,8 @@ export const Route = createFileRoute("/onboarding")({
     /** Present when coming from real signup — persisted across navigation steps */
     restaurantId:
       typeof s.restaurantId === "string" ? s.restaurantId : undefined,
+    /** Real DB slug returned by signUpAndCreateRestaurant — shown on CompletedStep */
+    slug: typeof s.slug === "string" ? s.slug : undefined,
   }),
   head: () => ({
     meta: [
@@ -50,7 +52,7 @@ const PILOT_SLUG = "naturalfingers";
 // ─── Page component ───────────────────────────────────────────────────────────
 
 function OnboardingPage() {
-  const { step: stepParam, restaurantId } = Route.useSearch();
+  const { step: stepParam, restaurantId, slug: realSlug } = Route.useSearch();
   const { onboarding, restaurants } = useStore();
   const navigate = useNavigate();
 
@@ -61,9 +63,9 @@ function OnboardingPage() {
     store.updateOnboarding({ currentStep: step });
   }, [step]);
 
-  // Preserve restaurantId in every navigation inside the onboarding flow
+  // Preserve restaurantId and slug in every navigation inside the onboarding flow
   const goTo = (n: number) => {
-    navigate({ to: "/onboarding", search: { step: n, restaurantId } });
+    navigate({ to: "/onboarding", search: { step: n, restaurantId, slug: realSlug } });
   };
 
   // ─── Per-step Supabase saves ─────────────────────────────────────────────
@@ -352,6 +354,7 @@ function OnboardingPage() {
       hideNav
     >
       <CompletedStep
+        restaurantSlug={realSlug}
         onGoToDashboard={() =>
           navigate({ to: "/dashboard", search: { r: restaurantId } })
         }
