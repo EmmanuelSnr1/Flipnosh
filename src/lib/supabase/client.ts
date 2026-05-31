@@ -10,10 +10,21 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// Node.js 20 has no native WebSocket, so Supabase Realtime throws during SSR.
+// When import.meta.env.SSR is true (server build), dynamically import the
+// `ws` package and pass it as the Realtime transport.
+// Vite substitutes import.meta.env.SSR → false in client builds, so this
+// branch is dead code and `ws` is never included in the browser bundle.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _wsTransport: any;
+if (import.meta.env.SSR) {
+  _wsTransport = (await import("ws")).default;
+}
+
 /**
- * Browser-safe Supabase client.
- * Uses the anon key — respects RLS.
- * Import this in components and client-side hooks.
+ * Anon Supabase client — respects RLS.
+ * Safe to import in components and client-side hooks.
+ * Also SSR-safe (provides ws transport on Node.js 20).
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -21,4 +32,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
   },
+  ...(_wsTransport
+    ? { realtime: { transport: _wsTransport as unknown as typeof WebSocket } }
+    : {}),
 });
