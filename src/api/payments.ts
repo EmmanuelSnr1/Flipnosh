@@ -250,7 +250,7 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
 
     const totalPence = subtotalPence + deliveryFeePence;
 
-    // ── 5. Generate order number & name ──────────────────────────────────────
+    // ── 5. Generate order number, name, and tracking token ───────────────────
     const { count } = await db
       .from("orders")
       .select("id", { count: "exact", head: true })
@@ -258,6 +258,13 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
     const orderNumber = `#${1000 + (count ?? 0) + 1}`;
     const firstName   = data.customerName.trim().split(/\s+/)[0] ?? data.customerName.trim();
     const orderName   = `${orderNumber} ${firstName}`;
+
+    // Tracking token (server-only — uses node:crypto)
+    const { generateTrackingToken, buildTrackingUrl } = await import(
+      "@/server/lib/tracking-token"
+    );
+    const trackingToken = generateTrackingToken();
+    const trackingUrl   = buildTrackingUrl(trackingToken);
 
     // ── 6. Build combined notes (order notes + delivery address) ──────────────
     const fullNotes = [
@@ -273,21 +280,23 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
     const { data: order, error: orderErr } = await db
       .from("orders")
       .insert({
-        restaurant_id:      data.restaurantId,
-        order_number:       orderNumber,
-        order_name:         orderName,
-        customer_name:      data.customerName.trim(),
-        customer_phone:     data.customerPhone?.trim() || null,
-        customer_email:     data.customerEmail?.trim().toLowerCase() || null,
-        fulfilment_type:    data.fulfilmentType,
-        subtotal_pence:     subtotalPence,
-        delivery_fee_pence: deliveryFeePence,
-        total_pence:        totalPence,
-        notes:              fullNotes || null,
-        source:             data.source || null,
-        status:             "pending",
-        payment_status:     "pending",
-        stripe_account_id:  restaurant.stripe_account_id,
+        restaurant_id:             data.restaurantId,
+        order_number:              orderNumber,
+        order_name:                orderName,
+        customer_name:             data.customerName.trim(),
+        customer_phone:            data.customerPhone?.trim() || null,
+        customer_email:            data.customerEmail?.trim().toLowerCase() || null,
+        fulfilment_type:           data.fulfilmentType,
+        subtotal_pence:            subtotalPence,
+        delivery_fee_pence:        deliveryFeePence,
+        total_pence:               totalPence,
+        notes:                     fullNotes || null,
+        source:                    data.source || null,
+        status:                    "pending",
+        payment_status:            "pending",
+        stripe_account_id:         restaurant.stripe_account_id,
+        tracking_token:            trackingToken,
+        tracking_token_created_at: new Date().toISOString(),
       })
       .select("id, order_number")
       .single();
@@ -448,6 +457,7 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
         status:         "pending",
         paymentStatus:  "pending",
         source:         data.source ?? null,
+        trackingUrl,
       });
     } catch {
       // Non-fatal
@@ -573,6 +583,8 @@ export type PaymentStatusResult = {
   restaurantName: string | null;
   restaurantSlug: string | null;
   estimatedMinutes: number | null;
+  /** Tracking token — used to build the /track/$token URL on the client */
+  trackingToken: string | null;
 };
 
 /**
@@ -595,6 +607,7 @@ export const getPaymentStatusForOrder = createServerFn({ method: "GET" })
       found: false, orderId: null, orderNumber: null, paymentStatus: null,
       totalPence: null, customerName: null, fulfilmentType: null,
       restaurantName: null, restaurantSlug: null, estimatedMinutes: null,
+      trackingToken: null,
     };
 
     // Look up order by session id
@@ -602,7 +615,7 @@ export const getPaymentStatusForOrder = createServerFn({ method: "GET" })
       .from("orders")
       .select(`
         id, order_number, payment_status, total_pence,
-        customer_name, fulfilment_type, restaurant_id,
+        customer_name, fulfilment_type, restaurant_id, tracking_token,
         restaurants(name, slug, fulfilment_settings(pickup_prep_time_minutes, delivery_time_minutes))
       `)
       .eq("stripe_checkout_session_id", sessionId)
@@ -638,6 +651,7 @@ export const getPaymentStatusForOrder = createServerFn({ method: "GET" })
         restaurantName:   rest?.name ?? null,
         restaurantSlug:   rest?.slug ?? null,
         estimatedMinutes,
+        trackingToken:    (order as { tracking_token?: string | null }).tracking_token ?? null,
       };
     }
 
@@ -684,6 +698,7 @@ export const getPaymentStatusForOrder = createServerFn({ method: "GET" })
           restaurantName:   rest?.name ?? null,
           restaurantSlug:   rest?.slug ?? null,
           estimatedMinutes,
+          trackingToken:    (order as { tracking_token?: string | null }).tracking_token ?? null,
         };
       }
     } catch {
@@ -701,5 +716,6 @@ export const getPaymentStatusForOrder = createServerFn({ method: "GET" })
       restaurantName:   rest?.name ?? null,
       restaurantSlug:   rest?.slug ?? null,
       estimatedMinutes,
+      trackingToken:    (order as { tracking_token?: string | null }).tracking_token ?? null,
     };
   });

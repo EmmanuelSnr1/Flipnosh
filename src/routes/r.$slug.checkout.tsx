@@ -149,6 +149,7 @@ function CheckoutPage() {
           order: result.order_number,
           name:  name.trim(),
           type:  state.fulfillment,
+          track: result.tracking_token,
         }),
       });
     } catch (err) {

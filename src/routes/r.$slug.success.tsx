@@ -7,6 +7,7 @@ export const Route = createFileRoute("/r/$slug/success")({
     order: typeof s.order === "string" ? s.order : undefined,
     name:  typeof s.name  === "string" ? s.name  : undefined,
     type:  s.type === "delivery" ? ("delivery" as const) : ("pickup" as const),
+    track: typeof s.track === "string" ? s.track : undefined,
   }),
   loader: () => ({}),
   component: SuccessPage,
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/r/$slug/success")({
 
 function SuccessPage() {
   const { restaurant } = SlugRoute.useLoaderData();
-  const { order, name, type } = Route.useSearch();
+  const { order, name, type, track } = Route.useSearch();
   const orderNumber = order ?? "—";
 
   const prepTime =
@@ -64,10 +65,21 @@ function SuccessPage() {
           </div>
         </div>
 
+        {/* Track order link */}
+        {track && (
+          <Link
+            to="/track/$token"
+            params={{ token: track }}
+            className="mt-6 inline-flex items-center justify-center gap-2 w-full rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Track your order →
+          </Link>
+        )}
+
         <Link
           to="/r/$slug/menu"
           params={{ slug: restaurant.slug }}
-          className="mt-6 inline-block rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          className={`${track ? "mt-3" : "mt-6"} inline-block rounded-full border border-border px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted`}
         >
           Back to menu
         </Link>

@@ -117,7 +117,7 @@ async function handleCheckoutSessionCompleted(
   // ── Idempotency check — skip if already marked paid ──────────────────────
   const { data: existing } = await db
     .from("orders")
-    .select("id, status, payment_status, order_number, order_name, total_pence, restaurant_id, fulfilment_type, customer_name, customer_phone, customer_email, source")
+    .select("id, status, payment_status, order_number, order_name, total_pence, restaurant_id, fulfilment_type, customer_name, customer_phone, customer_email, source, tracking_token")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -158,6 +158,12 @@ async function handleCheckoutSessionCompleted(
   // ── Emit order_paid event → staff notification + n8n dispatch ─────────────
   try {
     const { emitOrderEvent } = await import("@/server/events/order-events");
+    const rawToken = (existing as Record<string, unknown>).tracking_token as string | null ?? null;
+    let trackingUrl: string | null = null;
+    if (rawToken) {
+      const { buildTrackingUrl } = await import("@/server/lib/tracking-token");
+      trackingUrl = buildTrackingUrl(rawToken);
+    }
     await emitOrderEvent("order_paid", {
       restaurantId:   existing.restaurant_id,
       orderId,
@@ -171,6 +177,7 @@ async function handleCheckoutSessionCompleted(
       status:         "accepted",
       paymentStatus:  "paid",
       source:         (existing as Record<string, unknown>).source as string | null ?? null,
+      trackingUrl,
     });
   } catch {
     // Non-fatal — event dispatch must not block payment confirmation
@@ -254,12 +261,18 @@ async function handlePaymentIntentFailed(
   try {
     const { data: orderDetails } = await db
       .from("orders")
-      .select("order_number, order_name, customer_name, customer_phone, customer_email, fulfilment_type, total_pence, restaurant_id, source")
+      .select("order_number, order_name, customer_name, customer_phone, customer_email, fulfilment_type, total_pence, restaurant_id, source, tracking_token")
       .eq("id", order.id)
       .maybeSingle();
 
     if (orderDetails) {
       const { emitOrderEvent } = await import("@/server/events/order-events");
+      const rawToken = (orderDetails as Record<string, unknown>).tracking_token as string | null ?? null;
+      let trackingUrl: string | null = null;
+      if (rawToken) {
+        const { buildTrackingUrl } = await import("@/server/lib/tracking-token");
+        trackingUrl = buildTrackingUrl(rawToken);
+      }
       await emitOrderEvent("payment_failed", {
         restaurantId:   orderDetails.restaurant_id,
         orderId:        order.id,
@@ -273,6 +286,7 @@ async function handlePaymentIntentFailed(
         status:         "pending",
         paymentStatus:  "failed",
         source:         (orderDetails as Record<string, unknown>).source as string | null ?? null,
+        trackingUrl,
       });
     }
   } catch {

@@ -35,6 +35,8 @@ export type OrderEventInput = {
   status?:        string;
   paymentStatus?: string;
   source?:        string | null;
+  /** Pre-built public tracking URL (ordtrk_… token already resolved) */
+  trackingUrl?:   string | null;
 };
 
 const STAFF_ALERT_TYPES: OrderEventType[] = [
@@ -90,6 +92,10 @@ export async function emitOrderEvent(
     }
 
     // ── 2. n8n dispatch (fire-and-forget) ────────────────────────────────────
+    const base =
+      (typeof process !== "undefined" ? process.env.VITE_APP_URL : undefined) ??
+      "http://localhost:8080";
+
     const payload: OrderEventPayload = {
       event_type:      type,
       restaurant_id:   data.restaurantId,
@@ -105,6 +111,10 @@ export async function emitOrderEvent(
       payment_status:  data.paymentStatus,
       source:          data.source ?? null,
       timestamp:       new Date().toISOString(),
+      links: {
+        tracking_url:  data.trackingUrl ?? null,
+        dashboard_url: `${base}/dashboard/orders?r=${data.restaurantId}`,
+      },
     };
 
     void dispatchOrderEventToN8n(payload).catch(() => {/* swallow */});

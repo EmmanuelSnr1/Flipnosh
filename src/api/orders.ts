@@ -66,23 +66,32 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
     const firstName = data.customerName.trim().split(/\s+/)[0] ?? data.customerName.trim();
     const orderName = `${orderNumber} ${firstName}`;
 
+    // Generate tracking token (server-only — uses node:crypto)
+    const { generateTrackingToken, buildTrackingUrl } = await import(
+      "@/server/lib/tracking-token"
+    );
+    const trackingToken = generateTrackingToken();
+    const trackingUrl   = buildTrackingUrl(trackingToken);
+
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .insert({
-        restaurant_id:     data.restaurantId,
-        order_number:      orderNumber,
-        order_name:        orderName,
-        customer_name:     data.customerName,
-        customer_phone:    data.customerPhone?.trim() || null,
-        customer_email:    data.customerEmail?.trim().toLowerCase() || null,
-        fulfilment_type:   data.fulfilmentType,
-        subtotal_pence:    data.subtotalPence,
-        delivery_fee_pence: data.deliveryFeePence,
-        total_pence:       data.totalPence,
-        notes:             data.notes || null,
-        source:            data.source || null,
-        status:            "pending",
-        payment_status:    "unpaid",
+        restaurant_id:             data.restaurantId,
+        order_number:              orderNumber,
+        order_name:                orderName,
+        customer_name:             data.customerName,
+        customer_phone:            data.customerPhone?.trim() || null,
+        customer_email:            data.customerEmail?.trim().toLowerCase() || null,
+        fulfilment_type:           data.fulfilmentType,
+        subtotal_pence:            data.subtotalPence,
+        delivery_fee_pence:        data.deliveryFeePence,
+        total_pence:               data.totalPence,
+        notes:                     data.notes || null,
+        source:                    data.source || null,
+        status:                    "pending",
+        payment_status:            "unpaid",
+        tracking_token:            trackingToken,
+        tracking_token_created_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -175,13 +184,15 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
         status:         "pending",
         paymentStatus:  "unpaid",
         source:         data.source ?? null,
+        trackingUrl,
       });
     } catch {
       // Non-fatal
     }
 
     return {
-      id:           order.id as string,
-      order_number: order.order_number as string,
+      id:             order.id as string,
+      order_number:   order.order_number as string,
+      tracking_token: trackingToken,
     };
   });

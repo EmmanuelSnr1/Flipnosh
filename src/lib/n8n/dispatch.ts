@@ -31,6 +31,11 @@ export type OrderEventPayload = {
   payment_status?: string;
   source?:         string | null;
   timestamp:       string;
+  /** Public links — tracking page for customer, orders dashboard for staff */
+  links?: {
+    tracking_url:  string | null;
+    dashboard_url: string | null;
+  };
 };
 
 export async function dispatchOrderEventToN8n(
