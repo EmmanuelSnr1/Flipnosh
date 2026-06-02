@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
-import { createRouter, createBrowserHistory } from "@tanstack/react-router";
+import { createRouter } from "@tanstack/react-router";
+import { createBrowserHistory } from "@tanstack/history";
 import type { RouterHistory, NavigateOptions } from "@tanstack/history";
 import { routeTree } from "./routeTree.gen";
 import { resolveStorefrontSubdomain, isStorefrontPath } from "./lib/tenant/resolve-tenant";
@@ -75,19 +76,22 @@ void (0 as unknown as SubscriberCallbackArg);
 export const getRouter = () => {
   const queryClient = new QueryClient();
 
-  // Detect restaurant subdomain on the client (safe — no-op during SSR).
+  // Only inject a custom history on the client and only when there's a
+  // restaurant subdomain (e.g. naturalfingers.flipnosh.com).
+  // On the server (SSR) or on non-subdomain URLs we pass no history so
+  // TanStack Start can supply the correct default — memory history on the
+  // server, plain browser history on the client — avoiding the
+  // `window.history is undefined` crash during SSR.
   const subdomain =
     typeof window !== "undefined"
       ? resolveStorefrontSubdomain(window.location.hostname)
       : null;
 
-  const history = subdomain
-    ? createSubdomainHistory(subdomain)
-    : createBrowserHistory();
+  const history = subdomain ? createSubdomainHistory(subdomain) : undefined;
 
   const router = createRouter({
     routeTree,
-    history,
+    ...(history ? { history } : {}),
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
