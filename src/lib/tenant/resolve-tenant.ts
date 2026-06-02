@@ -1,19 +1,31 @@
 /**
  * Tenant resolver — pure functions, safe to import from both server and client.
  *
- * Rules:
+ * Production:
  *   naturalfingers.flipnosh.com  →  "naturalfingers"
  *   burgerlab.flipnosh.com       →  "burgerlab"
  *   flipnosh.com                 →  null  (marketing)
  *   www.flipnosh.com             →  null  (marketing)
  *   app.flipnosh.com             →  null  (dashboard)
  *   flipnosh.netlify.app         →  null  (deploy preview host)
- *   localhost / localhost:3000   →  null  (local dev)
- *   127.0.0.1                    →  null  (local dev)
+ *
+ * Local dev (no hosts-file / DoH-safe):
+ *   naturalfingers.lvh.me:8080   →  "naturalfingers"
+ *   naturalfingers.localtest.me  →  "naturalfingers"
+ *   localhost / 127.0.0.1        →  null
+ *
+ * lvh.me and localtest.me are public wildcard-DNS services that always return
+ * 127.0.0.1, so they work even when Chrome bypasses /etc/hosts via DNS-over-HTTPS.
  */
 
 /** Subdomain names that are NOT restaurant storefronts. */
 const RESERVED_SUBDOMAINS = new Set(["www", "app", "api", "mail", "cdn"]);
+
+function extractSubdomain(host: string, suffix: string): string | null {
+  const sub = host.slice(0, host.length - suffix.length);
+  if (!sub || sub.includes(".") || RESERVED_SUBDOMAINS.has(sub)) return null;
+  return sub;
+}
 
 /**
  * Derives a restaurant subdomain from a hostname.
@@ -36,17 +48,22 @@ export function resolveStorefrontSubdomain(hostname: string): string | null {
   // flipnosh.netlify.app (deploy preview) — treat as main domain
   if (host.endsWith(".netlify.app")) return null;
 
-  // Require exactly *.flipnosh.com
-  if (!host.endsWith(".flipnosh.com")) return null;
-
-  const subdomain = host.slice(0, host.length - ".flipnosh.com".length);
-
-  // Must be a single-level subdomain (no dots) and not reserved
-  if (!subdomain || subdomain.includes(".") || RESERVED_SUBDOMAINS.has(subdomain)) {
-    return null;
+  // Production: *.flipnosh.com
+  if (host.endsWith(".flipnosh.com")) {
+    return extractSubdomain(host, ".flipnosh.com");
   }
 
-  return subdomain;
+  // Local dev wildcard DNS — bypasses /etc/hosts and works with Chrome DoH:
+  //   naturalfingers.lvh.me        → 127.0.0.1  (public service)
+  //   naturalfingers.localtest.me  → 127.0.0.1  (public service)
+  if (host.endsWith(".lvh.me")) {
+    return extractSubdomain(host, ".lvh.me");
+  }
+  if (host.endsWith(".localtest.me")) {
+    return extractSubdomain(host, ".localtest.me");
+  }
+
+  return null;
 }
 
 /**
