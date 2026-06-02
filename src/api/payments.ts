@@ -81,15 +81,17 @@ const CheckoutItemSchema = z.object({
 });
 
 const CreateCheckoutSessionSchema = z.object({
-  restaurantId:    z.string().uuid(),
-  customerName:    z.string().min(1).max(100),
-  customerPhone:   z.string().max(30).optional(),
-  customerEmail:   z.union([z.string().email(), z.literal("")]).optional(),
-  fulfilmentType:  z.enum(["pickup", "delivery"]),
-  deliveryAddress: z.string().max(300).optional(),
-  notes:           z.string().max(500).optional(),
-  source:          z.string().max(100).optional(),
-  items:           z.array(CheckoutItemSchema).min(1).max(50),
+  restaurantId:        z.string().uuid(),
+  /** The restaurant's subdomain — used to build branded tracking/cancel URLs. */
+  restaurantSubdomain: z.string().optional(),
+  customerName:        z.string().min(1).max(100),
+  customerPhone:       z.string().max(30).optional(),
+  customerEmail:       z.union([z.string().email(), z.literal("")]).optional(),
+  fulfilmentType:      z.enum(["pickup", "delivery"]),
+  deliveryAddress:     z.string().max(300).optional(),
+  notes:               z.string().max(500).optional(),
+  source:              z.string().max(100).optional(),
+  items:               z.array(CheckoutItemSchema).min(1).max(50),
 });
 
 export type CreateCheckoutSessionInput = z.infer<typeof CreateCheckoutSessionSchema>;
@@ -111,7 +113,7 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
     const { data: restaurant, error: rErr } = await db
       .from("restaurants")
       .select(
-        "id, name, slug, email, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled",
+        "id, name, slug, subdomain, email, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled",
       )
       .eq("id", data.restaurantId)
       .single();
@@ -263,8 +265,9 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
     const { generateTrackingToken, buildTrackingUrl } = await import(
       "@/server/lib/tracking-token"
     );
+    const subdomain = data.restaurantSubdomain ?? restaurant.subdomain ?? null;
     const trackingToken = generateTrackingToken();
-    const trackingUrl   = buildTrackingUrl(trackingToken);
+    const trackingUrl   = buildTrackingUrl(trackingToken, subdomain);
 
     // ── 6. Build combined notes (order notes + delivery address) ──────────────
     const fullNotes = [
@@ -403,6 +406,9 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
 
     // ── 11. Create Stripe Checkout Session (destination charge) ───────────────
     const base = await appUrl();
+    // Use subdomain storefront URL for cancel so customers land on the right host
+    const { getRestaurantPublicUrl } = await import("@/lib/tenant/get-public-url");
+    const storefrontUrl = getRestaurantPublicUrl({ subdomain, slug: restaurant.slug });
     const session = await stripe.checkout.sessions.create({
       mode:                "payment",
       payment_method_types: ["card"],
@@ -429,7 +435,7 @@ export const createCheckoutSessionForOrder = createServerFn({ method: "POST" })
       },
       customer_email: data.customerEmail?.trim().toLowerCase() || undefined,
       success_url: `${base}/order-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${base}/r/${restaurant.slug}?payment=cancelled&order=${order.id}`,
+      cancel_url:  `${storefrontUrl}?payment=cancelled&order=${order.id}`,
     });
 
     // ── 12. Save session id to order ──────────────────────────────────────────
@@ -490,7 +496,7 @@ export const retryCheckoutSessionForOrder = createServerFn({ method: "POST" })
     // Load order + restaurant
     const { data: order, error: oErr } = await db
       .from("orders")
-      .select("*, restaurants(id, name, slug, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled)")
+      .select("*, restaurants(id, name, slug, subdomain, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled)")
       .eq("id", orderId)
       .single();
 
@@ -500,7 +506,7 @@ export const retryCheckoutSessionForOrder = createServerFn({ method: "POST" })
     const restaurant = Array.isArray(order.restaurants)
       ? order.restaurants[0]
       : order.restaurants as {
-          id: string; name: string; slug: string;
+          id: string; name: string; slug: string; subdomain: string | null;
           stripe_account_id: string | null;
           stripe_charges_enabled: boolean;
           stripe_payouts_enabled: boolean;
@@ -542,6 +548,8 @@ export const retryCheckoutSessionForOrder = createServerFn({ method: "POST" })
     }
 
     const base = await appUrl();
+    const { getRestaurantPublicUrl: getPubUrl } = await import("@/lib/tenant/get-public-url");
+    const retryStoUrl = getPubUrl({ subdomain: restaurant.subdomain ?? null, slug: restaurant.slug });
     const session = await stripe.checkout.sessions.create({
       mode:                "payment",
       payment_method_types: ["card"],
@@ -559,7 +567,7 @@ export const retryCheckoutSessionForOrder = createServerFn({ method: "POST" })
       },
       customer_email: order.customer_email ?? undefined,
       success_url: `${base}/order-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${base}/r/${restaurant.slug}?payment=cancelled&order=${orderId}`,
+      cancel_url:  `${retryStoUrl}?payment=cancelled&order=${orderId}`,
     });
 
     await db

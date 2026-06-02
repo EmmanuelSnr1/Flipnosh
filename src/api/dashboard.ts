@@ -55,6 +55,8 @@ export type DbRestaurant = {
   id: string;
   name: string;
   slug: string;
+  /** Subdomain identifier — e.g. "naturalfingers" → naturalfingers.flipnosh.com */
+  subdomain: string | null;
   city: string | null;
   address: string | null;
   postcode: string | null;
@@ -243,7 +245,7 @@ export const getDashboardContext = createServerFn({ method: "GET" })
       .from("restaurants")
       .select(
         `
-        id, name, slug, city, address, postcode, phone, email,
+        id, name, slug, subdomain, city, address, postcode, phone, email,
         status, onboarding_completed, cuisine_type, hours,
         stripe_account_id, stripe_onboarding_complete,
         stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted,
@@ -306,6 +308,7 @@ export const getDashboardContext = createServerFn({ method: "GET" })
         id: data.id,
         name: data.name,
         slug: data.slug,
+        subdomain: (data as Record<string, unknown>).subdomain as string | null ?? null,
         city: data.city,
         address: data.address,
         postcode: data.postcode,

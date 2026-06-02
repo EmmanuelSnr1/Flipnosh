@@ -929,11 +929,13 @@ export function CompletedStep({
   const r = restaurants.find((x) => x.slug === SLUG)!;
   // Use the real DB slug when available; fall back to mock slug for demo mode
   const slug = restaurantSlug ?? r.slug;
-  const url = `flipnosh.com/r/${slug}`;
+  // Subdomain URL: naturalfingers.flipnosh.com (slug doubles as subdomain)
+  const publicUrl = `https://${slug}.flipnosh.com`;
+  const displayUrl = `${slug}.flipnosh.com`;
   const itemCount = r.menu.reduce((s, c) => s + c.items.length, 0);
 
   const copy = () => {
-    navigator.clipboard.writeText(`https://${url}`).catch(() => {});
+    navigator.clipboard.writeText(publicUrl).catch(() => {});
     toast.success("Link copied to clipboard");
   };
 
@@ -948,11 +950,11 @@ export function CompletedStep({
       <div className="rounded-2xl border border-border bg-card p-5">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Your storefront URL</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <code className="flex-1 min-w-0 truncate rounded-lg bg-muted px-3 py-2 text-sm">{url}</code>
+          <code className="flex-1 min-w-0 truncate rounded-lg bg-muted px-3 py-2 text-sm">{displayUrl}</code>
           <button onClick={copy} className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">
             <Copy className="h-3.5 w-3.5" /> Copy
           </button>
-          <a href={`/r/${slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-4 py-2 text-xs font-medium hover:bg-muted">
+          <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-4 py-2 text-xs font-medium hover:bg-muted">
             <ExternalLink className="h-3.5 w-3.5" /> Visit
           </a>
         </div>

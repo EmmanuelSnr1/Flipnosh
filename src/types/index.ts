@@ -102,6 +102,8 @@ export type OnboardingState = {
 export type Restaurant = {
   id: string;
   slug: string;
+  /** Subdomain identifier — e.g. "naturalfingers" → naturalfingers.flipnosh.com */
+  subdomain?: string | null;
   name: string;
   tagline: string;
   city: string;

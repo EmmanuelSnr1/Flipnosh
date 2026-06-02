@@ -2,6 +2,7 @@ import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { getStorefrontBySlug } from "@/api/storefront";
 import { adaptStorefrontToRestaurant } from "@/lib/storefront/adapter";
+import { getRestaurantPublicUrl } from "@/lib/tenant/get-public-url";
 import { store } from "@/stores/mock-store";
 import { cart } from "@/stores/cart-store";
 import type { Restaurant } from "@/types";
@@ -12,8 +13,11 @@ export const Route = createFileRoute("/r/$slug")({
     const r = loaderData?.restaurant;
     if (!r) return {};
 
-    const appUrl = import.meta.env.VITE_APP_URL ?? "https://flipnosh.com";
-    const pageUrl = `${appUrl}/r/${params.slug}`;
+    // Use subdomain URL as canonical so crawlers index the branded domain
+    const pageUrl = getRestaurantPublicUrl({
+      subdomain: (r as Restaurant & { subdomain?: string | null }).subdomain,
+      slug: params.slug,
+    });
 
     const title       = `${r.name} — Order Online`;
     const description = r.branding?.tagline?.trim()
@@ -26,6 +30,10 @@ export const Route = createFileRoute("/r/$slug")({
       .find((u) => typeof u === "string" && u.startsWith("https://"));
 
     return {
+      links: [
+        // Canonical URL — tells search engines the subdomain is the primary URL
+        { rel: "canonical", href: pageUrl },
+      ],
       meta: [
         { title },
         { name: "description",            content: description },

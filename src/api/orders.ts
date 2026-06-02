@@ -31,6 +31,8 @@ const OrderItemSchema = z.object({
 
 const CreateStorefrontOrderSchema = z.object({
   restaurantId: z.string().uuid(),
+  /** The restaurant's subdomain (e.g. "naturalfingers") — used to build branded tracking URLs. */
+  restaurantSubdomain: z.string().optional(),
   customerName: z.string().min(1),
   customerPhone: z.string().optional(),
   customerEmail: z.string().optional(),
@@ -71,7 +73,7 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
       "@/server/lib/tracking-token"
     );
     const trackingToken = generateTrackingToken();
-    const trackingUrl   = buildTrackingUrl(trackingToken);
+    const trackingUrl   = buildTrackingUrl(trackingToken, data.restaurantSubdomain ?? null);
 
     const { data: order, error: orderErr } = await admin
       .from("orders")

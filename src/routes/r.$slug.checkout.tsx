@@ -66,14 +66,15 @@ function CheckoutPage() {
 
       const result = await createCheckoutSessionForOrder({
         data: {
-          restaurantId:    restaurant.id,
-          customerName:    name.trim(),
-          customerPhone:   phone.trim() || undefined,
-          customerEmail:   email.trim() || undefined,
-          fulfilmentType:  state.fulfillment,
-          deliveryAddress: state.fulfillment === "delivery" ? address.trim() : undefined,
-          notes:           notes.trim() || undefined,
-          source:          source ?? undefined,
+          restaurantId:        restaurant.id,
+          restaurantSubdomain: restaurant.subdomain ?? undefined,
+          customerName:        name.trim(),
+          customerPhone:       phone.trim() || undefined,
+          customerEmail:       email.trim() || undefined,
+          fulfilmentType:      state.fulfillment,
+          deliveryAddress:     state.fulfillment === "delivery" ? address.trim() : undefined,
+          notes:               notes.trim() || undefined,
+          source:              source ?? undefined,
           items: state.items.map((i) => ({
             menuItemId:        i.menuItemId,
             quantity:          i.quantity,
@@ -121,16 +122,17 @@ function CheckoutPage() {
 
       const result = await createStorefrontOrder({
         data: {
-          restaurantId:    restaurant.id,
-          customerName:    name.trim(),
-          customerPhone:   phone.trim() || undefined,
-          customerEmail:   email.trim() || undefined,
-          fulfilmentType:  state.fulfillment,
+          restaurantId:        restaurant.id,
+          restaurantSubdomain: restaurant.subdomain ?? undefined,
+          customerName:        name.trim(),
+          customerPhone:       phone.trim() || undefined,
+          customerEmail:       email.trim() || undefined,
+          fulfilmentType:      state.fulfillment,
           subtotalPence,
           deliveryFeePence,
           totalPence,
-          notes:           orderNotes || undefined,
-          source:          source ?? undefined,
+          notes:               orderNotes || undefined,
+          source:              source ?? undefined,
           items: state.items.map((i) => {
             const modsTotalPounds = i.modifiers.reduce((s, m) => s + m.price, 0);
             const unitPricePounds = i.price + modsTotalPounds;

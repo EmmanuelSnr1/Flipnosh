@@ -10,6 +10,7 @@ import {
   type DashboardContext,
 } from "@/api/dashboard";
 import { Route as DashboardRoute } from "./dashboard";
+import { getRestaurantPublicUrl } from "@/lib/tenant/get-public-url";
 import type {
   CartStyle,
   CategoryNav,
@@ -19,7 +20,7 @@ import type {
   ThemeName,
 } from "@/types";
 import { toast } from "sonner";
-import { ExternalLink, Lock, Check } from "lucide-react";
+import { ExternalLink, Lock, Check, Copy, Globe } from "lucide-react";
 import { ImageUpload } from "@/components/shared/ImageUpload";
 
 export const Route = createFileRoute("/dashboard/storefront")({
@@ -280,6 +281,55 @@ const CART_STYLE_OPTIONS: Array<{ value: CartStyle; label: string; preview: Reac
   },
 ];
 
+// ── Storefront URL card ───────────────────────────────────────────────────────
+
+function StorefrontUrlCard({ restaurant }: { restaurant: DashboardContext["restaurant"] }) {
+  const publicUrl = getRestaurantPublicUrl({
+    subdomain: restaurant.subdomain,
+    slug: restaurant.slug,
+  });
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(publicUrl).catch(() => {});
+    toast.success("URL copied to clipboard");
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Globe className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold">Your storefront URL</p>
+        {restaurant.subdomain && (
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+            Live on subdomain
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <code className="flex-1 min-w-0 truncate rounded-xl bg-muted px-3 py-2 text-sm font-mono">
+          {publicUrl}
+        </code>
+        <button
+          onClick={copyUrl}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-xs font-medium hover:bg-muted transition-colors"
+        >
+          <Copy className="h-3.5 w-3.5" /> Copy
+        </button>
+        <a
+          href={publicUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          <ExternalLink className="h-3.5 w-3.5" /> Open
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
+
 function StorefrontConfigPage() {
   const { restaurant, branding, theme } = DashboardRoute.useLoaderData() as DashboardContext;
   const { r } = Route.useSearch();
@@ -434,19 +484,11 @@ function StorefrontConfigPage() {
       <PageHeader
         title="Storefront"
         subtitle="Customize the look and content of your direct-order site."
-        action={
-          <Link
-            to="/r/$slug"
-            params={{ slug: restaurant.slug }}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> View live storefront
-          </Link>
-        }
       />
 
       <div className="p-6 max-w-5xl space-y-6">
+        {/* ── STOREFRONT URL ── */}
+        <StorefrontUrlCard restaurant={restaurant} />
         {/* ── THEME ── */}
         <Card title="Theme">
           <div className="grid gap-3 sm:grid-cols-3 p-5">

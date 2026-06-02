@@ -96,7 +96,7 @@ type SbTheme = {
   show_badges: boolean;
   show_reviews: boolean;
   cta_text: string;
-  enabled_pages: unknown;
+  enabled_pages: string[] | null | undefined;
 } | null;
 
 type SbFulfilment = {
@@ -280,6 +280,7 @@ export function adaptStorefrontToRestaurant(sb: SupabaseStorefront): Restaurant 
   return {
     id: sb.id,
     slug: sb.slug,
+    subdomain: sb.subdomain ?? null,
     name: sb.name,
     tagline: sb.branding?.tagline ?? "",
     city: sb.city ?? "",

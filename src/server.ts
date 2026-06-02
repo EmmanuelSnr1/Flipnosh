@@ -2,6 +2,7 @@ import "./lib/utils/error-capture";
 
 import { consumeLastCapturedError } from "./lib/utils/error-capture";
 import { renderErrorPage } from "./lib/utils/error-page";
+import { resolveStorefrontSubdomain, isStorefrontPath } from "./lib/tenant/resolve-tenant";
 import {
   handleStripeConnectWebhook,
   STRIPE_CONNECT_WEBHOOK_PATH,
@@ -76,11 +77,12 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const url = new URL(request.url);
+    const { pathname } = url;
+
     // ── Intercept raw HTTP routes BEFORE TanStack Start processes them ────────
     // These need the raw request body (e.g. for Stripe signature verification)
     // and must not go through the SSR render pipeline.
-    const { pathname } = new URL(request.url);
-
     if (pathname === STRIPE_CONNECT_WEBHOOK_PATH) {
       return handleStripeConnectWebhook(request);
     }
@@ -89,10 +91,45 @@ export default {
       return handleStripePaymentWebhook(request);
     }
 
+    // ── Subdomain storefront rewrite ──────────────────────────────────────────
+    //
+    // naturalfingers.flipnosh.com/menu
+    //   → served as if the URL is /r/naturalfingers/menu
+    //
+    // This runs BEFORE TanStack Start's SSR handler so the server-side router
+    // sees the full /r/:subdomain/:sub path and renders the correct route.
+    //
+    // The client-side router mirrors this via the custom subdomain history in
+    // src/router.tsx, so SSR → hydration is always consistent.
+    //
+    // Only storefront sub-paths are rewritten; shared paths like /order-success
+    // and /track/* are served as-is on any host.
+    const subdomain = resolveStorefrontSubdomain(url.hostname);
+    let effectiveRequest = request;
+
+    if (subdomain && isStorefrontPath(pathname)) {
+      // Build rewritten path: /menu → /r/naturalfingers/menu
+      const rewrittenPath =
+        pathname === "/" || pathname === ""
+          ? `/r/${subdomain}/`
+          : `/r/${subdomain}${pathname}`;
+
+      const rewrittenUrl = new URL(url.toString());
+      rewrittenUrl.pathname = rewrittenPath;
+
+      effectiveRequest = new Request(rewrittenUrl.toString(), {
+        method:  request.method,
+        headers: request.headers,
+        body:    request.method === "GET" || request.method === "HEAD" ? null : request.body,
+        // @ts-expect-error — duplex is needed for streaming bodies in some runtimes
+        duplex:  "half",
+      });
+    }
+
     // ── Normal TanStack Start SSR handler ─────────────────────────────────────
     try {
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
+      const response = await handler.fetch(effectiveRequest, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
