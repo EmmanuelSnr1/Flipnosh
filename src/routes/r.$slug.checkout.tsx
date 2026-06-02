@@ -8,6 +8,7 @@ import { gbp } from "@/lib/utils/format";
 import { ChevronLeft, Lock, Banknote, CreditCard } from "lucide-react";
 import { FulfillmentSelector } from "@/components/storefront/FulfillmentSelector";
 import { LoadingScreen } from "@/components/shared/LoadingScreen";
+import { PhoneField } from "@/components/shared/PhoneField";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/r/$slug/checkout")({
@@ -22,11 +23,12 @@ function CheckoutPage() {
   const state = useCart();
   const navigate = useNavigate();
 
-  const [name, setName]       = useState("");
-  const [email, setEmail]     = useState("");
-  const [phone, setPhone]     = useState("");
-  const [notes, setNotes]     = useState("");
-  const [address, setAddress] = useState("");
+  const [name, setName]         = useState("");
+  const [email, setEmail]       = useState("");
+  const [phone, setPhone]       = useState("");
+  const [phoneValid, setPhoneValid] = useState(false);
+  const [notes, setNotes]       = useState("");
+  const [address, setAddress]   = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Payment method — default to card when Stripe is available, cash otherwise
@@ -53,6 +55,10 @@ function CheckoutPage() {
   const submitStripe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (!phoneValid) {
+      toast.error("Please enter a valid phone number.");
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -93,6 +99,10 @@ function CheckoutPage() {
   const submitUnpaid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (!phoneValid) {
+      toast.error("Please enter a valid phone number.");
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -212,8 +222,13 @@ function CheckoutPage() {
           <section className="rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold mb-3">Contact</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Full name" value={name}  onChange={setName}  required />
-              <Field label="Phone"     value={phone} onChange={setPhone} required />
+              <Field label="Full name" value={name} onChange={setName} required />
+              <PhoneField
+                value={phone}
+                onChange={setPhone}
+                onValidChange={setPhoneValid}
+                required
+              />
               <div className="sm:col-span-2">
                 <Field
                   label={useStripe ? "Email (for receipt)" : "Email (optional)"}
